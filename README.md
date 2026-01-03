@@ -5,7 +5,7 @@ Claude Code의 커스텀 스킬과 에이전트 모음입니다. 여러 서버�
 ## 설치
 
 ```bash
-git clone https://github.com/YOUR_ORG/claude--for-dslab.git
+git clone https://github.com/iamseungpil/claude--for-dslab.git
 cd claude--for-dslab
 chmod +x install.sh
 ./install.sh
