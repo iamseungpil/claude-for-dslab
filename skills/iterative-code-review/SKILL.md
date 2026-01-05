@@ -1,11 +1,11 @@
 ---
 name: iterative-code-review
-description: Iteratively improve code quality by using modular-code-architect agent to fix issues, code-reviewer agent to validate quality, and running tests to verify correctness. Use when implementing new features, after bug fixes, during refactoring, or when preparing code for production deployment. Loops until code-reviewer reports no critical issues AND tests pass.
+description: Iteratively improve code quality by using task-planner-analyzer for planning, modular-code-architect agent to fix issues, code-reviewer agent to validate quality, and running tests to verify correctness. Use when implementing new features, after bug fixes, during refactoring, or when preparing code for production deployment. Loops until code-reviewer reports no critical issues AND tests pass.
 ---
 
 # Iterative Code Review
 
-코드 아키텍트와 코드 리뷰어를 반복적으로 사용하고, 안정화 후 테스트를 실행하여 코드를 production-ready 수준까지 개선하는 스킬입니다.
+태스크 플래너, 코드 아키텍트, 코드 리뷰어를 반복적으로 사용하고, 안정화 후 테스트를 실행하여 코드를 production-ready 수준까지 개선하는 스킬입니다.
 
 ## 사용 시점
 
@@ -26,45 +26,45 @@ description: Iteratively improve code quality by using modular-code-architect ag
 ### Phase 2: 반복 개선 루프
 
 ```
-┌──────────────────────────────────────────────────────────────────────────┐
-│                                                                          │
-│  ┌─────────────────┐     ┌─────────────────────┐                        │
-│  │  Code Architect │────▶│   Code Reviewer     │                        │
-│  │    (수정)       │     │     (검토)          │                        │
-│  └─────────────────┘     └──────────┬──────────┘                        │
-│           ▲                         │                                    │
-│           │                         ▼                                    │
-│           │              ┌─────────────────────┐                        │
-│           │              │  Critical Issues?   │                        │
-│           │              └──────────┬──────────┘                        │
-│           │                         │                                    │
-│           │         Yes             │    No                              │
-│           └─────────────────────────┤                                    │
-│                                     ▼                                    │
-│                          ┌─────────────────────┐                        │
-│                          │  Stable? (3-4 loops │                        │
-│                          │  or Production Ready)│                        │
-│                          └──────────┬──────────┘                        │
-│                                     │                                    │
-│                          No         │    Yes                             │
-│           ┌─────────────────────────┤                                    │
-│           │                         ▼                                    │
-│           │              ┌─────────────────────┐                        │
-│           │              │    Run Tests        │◀──────────────┐        │
-│           │              │  (pytest, npm, etc) │               │        │
-│           │              └──────────┬──────────┘               │        │
-│           │                         │                          │        │
-│           │                  Pass   │   Fail                   │        │
-│           │              ┌──────────┴──────────┐               │        │
-│           │              ▼                     ▼               │        │
-│           │   ┌─────────────────┐   ┌─────────────────┐       │        │
-│           │   │   Complete!     │   │    Debugger     │───────┘        │
-│           │   └─────────────────┘   │  (분석 & 수정)   │                │
-│           │                         └────────┬────────┘                 │
-│           │                                  │                          │
-│           └──────────────────────────────────┘                          │
-│                                                                          │
-└──────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                                                                                 │
+│  ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────────┐       │
+│  │  Task Planner   │────▶│  Code Architect │────▶│   Code Reviewer     │       │
+│  │  (분석 & 계획)   │     │    (수정)       │     │     (검토)          │       │
+│  └─────────────────┘     └─────────────────┘     └──────────┬──────────┘       │
+│           ▲                                                  │                  │
+│           │                                                  ▼                  │
+│           │                                       ┌─────────────────────┐       │
+│           │                                       │  Critical Issues?   │       │
+│           │                                       └──────────┬──────────┘       │
+│           │                                                  │                  │
+│           │                              Yes                 │    No            │
+│           └──────────────────────────────────────────────────┤                  │
+│                                                              ▼                  │
+│                                               ┌─────────────────────┐           │
+│                                               │  Stable? (3-4 loops │           │
+│                                               │  or Production Ready)│           │
+│                                               └──────────┬──────────┘           │
+│                                                          │                      │
+│                                               No         │    Yes               │
+│           ┌──────────────────────────────────────────────┤                      │
+│           │                                              ▼                      │
+│           │                                   ┌─────────────────────┐           │
+│           │                                   │    Run Tests        │◀────────┐ │
+│           │                                   │  (pytest, npm, etc) │         │ │
+│           │                                   └──────────┬──────────┘         │ │
+│           │                                              │                    │ │
+│           │                                       Pass   │   Fail             │ │
+│           │                                   ┌──────────┴──────────┐         │ │
+│           │                                   ▼                     ▼         │ │
+│           │                        ┌─────────────────┐   ┌─────────────────┐  │ │
+│           │                        │   Complete!     │   │    Debugger     │──┘ │
+│           │                        └─────────────────┘   │  (분석 & 수정)   │    │
+│           │                                              └────────┬────────┘    │
+│           │                                                       │             │
+│           └───────────────────────────────────────────────────────┘             │
+│                                                                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Phase 3: 테스트 실행 (안정화 후)
@@ -80,17 +80,32 @@ description: Iteratively improve code quality by using modular-code-architect ag
 
 ## 에이전트 호출 지침
 
-### 1. modular-code-architect 에이전트 호출
+### 1. task-planner-analyzer 에이전트 호출 (매 반복 시작)
 
-수정이 필요할 때 Task 도구로 호출:
+각 반복 사이클의 시작 시 Task 도구로 호출:
+```
+Task tool 사용:
+- subagent_type: "task-planner-analyzer"
+- prompt:
+  - 이전 code-reviewer의 피드백 (있는 경우)
+  - 수정해야 할 이슈들의 목록
+  - 코드베이스 구조 분석 및 제약 조건 파악 요청
+  - 구체적인 수정 계획과 todo list 생성 요청
+```
+
+### 2. modular-code-architect 에이전트 호출
+
+task-planner-analyzer의 계획에 따라 수정이 필요할 때 Task 도구로 호출:
 ```
 Task tool 사용:
 - subagent_type: "modular-code-architect"
-- prompt: 수정해야 할 이슈들의 상세 설명
-- 파일 경로, 라인 번호, 구체적인 수정 방향 포함
+- prompt:
+  - task-planner-analyzer가 생성한 계획 포함
+  - 수정해야 할 이슈들의 상세 설명
+  - 파일 경로, 라인 번호, 구체적인 수정 방향 포함
 ```
 
-### 2. code-reviewer 에이전트 호출
+### 3. code-reviewer 에이전트 호출
 
 수정 후 검토할 때 Task 도구로 호출:
 ```
@@ -102,7 +117,7 @@ Task tool 사용:
   - Critical, Warning, Suggestion 구분하여 보고 요청
 ```
 
-### 3. debugger 에이전트 호출 (테스트 실패 시)
+### 4. debugger 에이전트 호출 (테스트 실패 시)
 
 테스트 실패 분석이 필요할 때 Task 도구로 호출:
 ```
@@ -204,12 +219,13 @@ make test
 Claude:
 1. git diff main...HEAD로 변경사항 확인
 2. 테스트 환경 탐지 (pytest 발견)
-3. modular-code-architect로 초기 이슈 수정
-4. code-reviewer로 검토
-5. Critical 이슈 발견 시 수정 반복 (3회)
-6. Production-ready 판정 → 테스트 실행
-7. pytest 실패 → debugger로 분석 → 수정
-8. pytest 통과 → 완료!
+3. [반복 시작] task-planner-analyzer로 이슈 분석 및 수정 계획 수립
+4. modular-code-architect로 계획에 따라 수정
+5. code-reviewer로 검토
+6. Critical 이슈 발견 시 → task-planner-analyzer로 돌아가서 반복 (3회)
+7. Production-ready 판정 → 테스트 실행
+8. pytest 실패 → debugger로 분석 → 수정
+9. pytest 통과 → 완료!
 ```
 
 ### 예시 2: ML 모델 수정 검증
@@ -218,11 +234,12 @@ Claude:
 
 Claude:
 1. 해당 파일 분석
-2. 아키텍트로 개선점 구현
-3. 리뷰어로 검증 (gradient flow 특별 주의)
-4. 4회 반복 후 안정화
-5. 실제 학습 테스트 (가능한 경우)
-6. 완료 보고
+2. [반복 1] task-planner-analyzer로 개선 계획 수립
+3. modular-code-architect로 개선점 구현
+4. code-reviewer로 검증 (gradient flow 특별 주의)
+5. [반복 2-4] Critical 이슈에 대해 계획→수정→검토 반복
+6. 4회 반복 후 안정화 → 테스트 실행
+7. 완료 보고
 ```
 
 ### 예시 3: 테스트 실패 처리
@@ -233,9 +250,10 @@ Claude:
 3. debugger 에이전트 호출:
    - 에러: "AssertionError: gradient is None"
    - 분석: create_graph=False로 인한 문제
-4. modular-code-architect로 수정
-5. pytest 재실행 → 통과
-6. 완료!
+4. task-planner-analyzer로 수정 계획 수립
+5. modular-code-architect로 수정
+6. pytest 재실행 → 통과
+7. 완료!
 ```
 
 ## Best Practices
