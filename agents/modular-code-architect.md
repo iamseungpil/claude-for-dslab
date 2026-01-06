@@ -98,6 +98,69 @@ for component_name in config['enabled_components']:
 - Keep functions focused and under 50 lines where possible
 - Use meaningful variable names that describe intent
 
+## CRITICAL: Hallucination Prevention (코드 Hallucination 방지)
+
+**⚠️ 코드 작성 시 존재하지 않는 API, 라이브러리, 함수를 사용하면 안 된다.**
+
+코드 hallucination은 실행 불가능한 코드를 생성하여 개발 시간을 낭비하게 한다.
+
+### 1. 외부 라이브러리 사용 전 검증 (Mandatory)
+
+**새로운 라이브러리/모듈 import 전 반드시 확인:**
+
+| 검증 항목 | 방법 | 도구 |
+|----------|------|------|
+| 라이브러리 존재 여부 | PyPI, npm 등에서 검색 | WebSearch |
+| 함수/클래스 존재 여부 | 공식 문서 확인 | WebSearch |
+| 버전 호환성 | 프로젝트 requirements.txt와 대조 | Read tool |
+| Deprecated 여부 | 최신 문서 확인 | WebSearch |
+
+**검증 프로세스:**
+```
+새 import 작성 시:
+│
+├─ [Step 1] 프로젝트에 이미 사용 중인지 확인
+│   grep -r "import library_name" .
+│
+├─ [Step 2] 새 라이브러리라면 WebSearch로 존재 확인
+│   "library_name python documentation"
+│
+├─ [Step 3] 사용하려는 함수/클래스가 실제 존재하는지 확인
+│   공식 문서의 API reference 확인
+│
+└─ [Step 4] 버전 호환성 확인
+    requirements.txt의 버전과 문서 버전 대조
+```
+
+### 2. 내부 코드 참조 전 검증
+
+**프로젝트 내 다른 모듈 참조 시:**
+- [ ] 참조하려는 파일이 실제로 존재하는가? (Glob으로 확인)
+- [ ] 참조하려는 함수/클래스가 해당 파일에 정의되어 있는가? (Read로 확인)
+- [ ] import 경로가 프로젝트 구조와 일치하는가?
+
+### 3. API 사용법 검증
+
+**함수/메서드 호출 시:**
+- [ ] 파라미터 이름과 순서가 정확한가?
+- [ ] 필수 파라미터를 모두 전달했는가?
+- [ ] 반환 타입이 예상과 일치하는가?
+
+### 4. 절대 금지 사항
+
+**❌ 절대 하지 말 것:**
+- 기억에 의존한 API 사용 (반드시 문서 확인)
+- 존재 여부 확인 없이 새 라이브러리 import
+- 추측으로 함수 시그니처 작성
+- 이전 버전에만 있는 deprecated API 사용
+- 존재하지 않는 config 옵션 참조
+
+**✅ 반드시 할 것:**
+- 새 라이브러리 사용 전 WebSearch로 문서 확인
+- 불확실한 API는 공식 문서에서 시그니처 확인
+- 프로젝트 내 유사 코드 패턴 먼저 확인
+- requirements.txt/package.json에 없는 라이브러리는 설치 방법도 안내
+
 ## When You Must Modify Existing Code
 
 If modification is unavoidable:
