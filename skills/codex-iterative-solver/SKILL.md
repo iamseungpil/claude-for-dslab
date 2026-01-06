@@ -120,6 +120,75 @@ Read `/tmp/codex_iteration_N_output.txt` and extract:
 4. **Alternative Approaches** - Codex's suggestions
 5. **Final Recommendation** - What Codex recommends and why
 
+## Phase 4.5: CRITICAL - Verify Codex Response (Hallucination Prevention)
+
+**⚠️ Codex도 LLM이므로 hallucination이 발생할 수 있다. 모든 응답을 검증해야 한다.**
+
+Codex의 피드백을 그대로 신뢰하지 말고, 다음 단계로 검증:
+
+### 4.5.1: 검증이 필요한 Codex 응답 유형
+
+| Codex 응답 유형 | 검증 방법 | 도구 |
+|----------------|----------|------|
+| **Critical Issues** | 해당 코드에서 실제로 문제인지 확인 | Read tool |
+| **Missing API/함수** | 해당 API가 실제로 존재하는지 확인 | WebSearch, Grep |
+| **Alternative Approaches** | 제안된 라이브러리/패턴이 실제로 존재하는지 확인 | WebSearch |
+| **Performance Claims** | 성능 주장에 대한 근거 확인 | WebSearch (벤치마크) |
+| **Best Practices** | 해당 분야의 실제 best practice인지 확인 | WebSearch |
+
+### 4.5.2: 검증 프로세스
+
+```
+Codex 응답의 각 항목에 대해:
+│
+├─ [Critical Issue 주장]
+│   → 해당 코드 파일을 Read로 직접 확인
+│   → 실제로 문제가 있는지 검증
+│   → 없는 문제를 지적했다면 무시
+│
+├─ [라이브러리/API 제안]
+│   → WebSearch로 해당 라이브러리 존재 확인
+│   → 프로젝트 requirements.txt와 호환성 확인
+│   → 존재하지 않는 라이브러리면 무시
+│
+├─ [코드 패턴 제안]
+│   → 프로젝트 기존 코드에서 유사 패턴 확인
+│   → 프로젝트 컨벤션과 맞는지 확인
+│
+└─ [성능/보안 주장]
+    → WebSearch로 해당 주장의 근거 확인
+    → 검증 불가능한 주장은 "검증 필요" 표시
+```
+
+### 4.5.3: 검증 결과 기록
+
+```
+✓ Verified Codex Feedback:
+- "SQL injection 취약점" ✓ (user_input이 직접 쿼리에 사용됨 확인)
+- "asyncio 사용 권장" ✓ (Python 공식 문서에서 I/O bound 작업에 권장)
+
+✗ REJECTED (Hallucination):
+- "use torch.quantum module" ✗ (WebSearch: 해당 모듈 존재하지 않음)
+- "line 45 has memory leak" ✗ (해당 라인에 메모리 누수 없음)
+
+⚠️ Needs Manual Verification:
+- "이 알고리즘은 O(n²) 복잡도" → 실제 분석 필요
+```
+
+### 4.5.4: 절대 금지 사항
+
+**❌ 절대 하지 말 것:**
+- Codex 응답을 검증 없이 그대로 사용자에게 전달
+- 존재하지 않는 라이브러리 설치 제안
+- 확인하지 않은 Critical Issue를 실제 문제로 보고
+- Codex의 코드 제안을 검증 없이 적용
+
+**✅ 반드시 할 것:**
+- 모든 Critical Issue는 실제 코드에서 확인
+- 새 라이브러리 제안은 WebSearch로 존재 확인
+- 검증된 피드백만 사용자에게 보고
+- 불확실한 항목은 "검증 필요" 명시
+
 ## Phase 5: Refine Plan
 
 Based on Codex's feedback:

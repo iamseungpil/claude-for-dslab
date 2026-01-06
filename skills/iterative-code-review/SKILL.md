@@ -42,7 +42,7 @@ description: Iteratively improve code quality by using task-planner-analyzer for
 │           └──────────────────────────────────────────────────┤                  │
 │                                                              ▼                  │
 │                                               ┌─────────────────────┐           │
-│                                               │  Stable? (3-4 loops │           │
+│                                               │  Stable? (3 loops   │           │
 │                                               │  or Production Ready)│           │
 │                                               └──────────┬──────────┘           │
 │                                                          │                      │
@@ -191,7 +191,7 @@ make test
 다음 조건 중 하나를 만족하면 "안정화"로 판단하고 테스트 실행:
 
 1. **Production Ready 판정**: code-reviewer가 "production ready" 또는 "no critical issues"로 판정
-2. **연속 3-4 라운드 무변경**: Critical 이슈 없이 3-4번의 리뷰 사이클 완료
+2. **연속 3 라운드 무변경**: Critical 이슈 없이 3번의 리뷰 사이클 완료
 3. **Warning만 남음**: Critical 이슈가 모두 해결되고 Warning/Suggestion만 남은 경우
 
 ## 반복 종료 조건
