@@ -171,13 +171,80 @@ Prompt: Evaluate this weekly report draft for quality and understandability.
 [Include the draft report]
 ```
 
-### Step 4.2: Fact Checking
+### Step 4.2: Fact Checking (Hallucination Prevention) - CRITICAL
 
-For each factual claim in the report:
+**⚠️ HARD CONSTRAINT: Hallucination은 단 하나도 허용하지 않는다.**
 
-1. **Code-based claims**: Verify by reading source files
-2. **Paper citations**: Verify using WebSearch
-3. **Numerical data**: Cross-check with source files
+모든 사실적 주장은 반드시 검증해야 하며, 검증되지 않은 정보는 보고서에 포함할 수 없다.
+
+#### 4.2.1: Hallucination 유형별 검증 방법
+
+| Hallucination 유형 | 검증 방법 | 도구 |
+|-------------------|----------|------|
+| **존재하지 않는 기능** | 해당 코드 파일에서 기능 구현 여부 확인 | Read tool |
+| **잘못된 수치/파라미터** | config 파일, 코드, 결과 파일과 대조 | Read tool |
+| **허위 논문 인용** | 논문 존재 여부 및 내용 검증 | WebSearch |
+| **잘못된 저자/연도** | 실제 논문 메타데이터 확인 | WebSearch |
+| **과장된 성능 주장** | 실험 결과 파일과 직접 대조 | Read tool |
+| **존재하지 않는 API/함수** | 공식 문서 또는 코드베이스 확인 | WebSearch, Read |
+
+#### 4.2.2: 검증 프로세스
+
+```
+보고서의 모든 문장 순회:
+│
+├─ [기술적 주장] → 코드 파일에서 직접 확인
+│   예: "LTPO 학습률은 0.03이다"
+│   검증: ltpo/config.yaml 또는 해당 .py 파일 읽기
+│
+├─ [수치 데이터] → 원본 데이터와 대조
+│   예: "실험 결과 87% 정확도 달성"
+│   검증: results/*.json 파일에서 실제 값 확인
+│
+├─ [논문 인용] → WebSearch로 검증
+│   예: "Zhang et al. (2024)에 따르면..."
+│   검증: 논문 존재 여부, 저자, 연도, 내용 일치 확인
+│
+├─ [구현 내용] → Git diff 및 코드 확인
+│   예: "새로운 reward 함수를 추가했다"
+│   검증: git log, 해당 파일에서 함수 존재 확인
+│
+└─ [설정값] → config 파일 확인
+    예: "batch size 32로 학습"
+    검증: configs/*.yaml 파일에서 확인
+```
+
+#### 4.2.3: Fact Base 업데이트
+
+검증 결과를 Fact Base에 기록:
+
+```
+✓ Verified:
+- "LTPO lr=0.03" (ltpo/memgen_ltpo.py:36)
+- "Titans 논문 2025년" (WebSearch: arXiv:2501.00663)
+- "GPT 파산율 4.6%" (results/gpt_corrected.json:bankruptcy_rate)
+
+✗ HALLUCINATION DETECTED:
+- "99% 정확도 달성" → 실제: 87% (results/exp1.json)
+- "Kim et al. (2024)" → WebSearch: 해당 논문 없음
+- "자동 저장 기능" → 코드에 해당 기능 없음
+
+⚠️ Needs Verification:
+- "MemGen은 2024년 발표" → WebSearch 필요
+```
+
+#### 4.2.4: Hallucination 발견 시 조치
+
+1. **즉시 해당 내용 삭제 또는 수정**
+2. **올바른 정보로 대체** (검증된 사실만 사용)
+3. **검증 불가능한 내용은 보고서에서 제외**
+4. **재검증 후 다음 iteration 진행**
+
+**절대 금지 사항:**
+- 검증 없이 수치 언급 ❌
+- 읽지 않은 논문 인용 ❌
+- 확인하지 않은 코드 기능 설명 ❌
+- 추측성 내용을 사실처럼 서술 ❌
 
 ### Step 4.3: Check Termination Conditions
 
