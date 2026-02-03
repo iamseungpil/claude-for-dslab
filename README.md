@@ -22,6 +22,7 @@ chmod +x install.sh
 | `iterative-code-review` | code-architect + code-reviewer + 테스트 반복으로 코드 품질 개선 |
 | `weekly-report-writer` | Git 변경사항 분석하여 학술 스타일 주간 보고서 생성 |
 | `codex-iterative-solver` | Codex CLI와 협업하여 복잡한 문제를 반복적으로 분석/해결 |
+| `paper-digest` | 논문 요약을 소셜 공유용(Discord/Slack/Twitter)으로 생성. 인사이트 중심 단일 문단 |
 | `update-study` | Study 노트 업데이트 |
 
 ## Agents (자동 호출)
@@ -103,6 +104,7 @@ claude-for-dslab/
 │   ├── iterative-code-review/
 │   ├── weekly-report-writer/
 │   ├── codex-iterative-solver/
+│   ├── paper-digest/
 │   └── update-study/
 └── agents/
     ├── academic-writing-assistant.md
