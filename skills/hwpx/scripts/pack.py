@@ -2,13 +2,20 @@
 """
 HWPX Pack Script
 Creates HWPX file from unpacked directory with proper structure.
+Automatically validates before packing to catch issues early.
 """
 
 import argparse
 import zipfile
 import os
 import sys
+from pathlib import Path
 from xml.dom import minidom
+
+# Add parent directory to path for validate import
+sys.path.insert(0, str(Path(__file__).parent))
+
+from validate import validate_hwpx
 
 
 def condense_xml(xml_content: bytes) -> bytes:
@@ -22,7 +29,8 @@ def condense_xml(xml_content: bytes) -> bytes:
         return xml_content
 
 
-def pack_hwpx(input_dir: str, output_path: str, condense: bool = True) -> None:
+def pack_hwpx(input_dir: str, output_path: str, condense: bool = True,
+              skip_validation: bool = False, force: bool = False) -> bool:
     """
     Pack a directory into a HWPX file.
 
@@ -30,16 +38,35 @@ def pack_hwpx(input_dir: str, output_path: str, condense: bool = True) -> None:
         input_dir: Directory containing unpacked HWPX contents
         output_path: Path for the output HWPX file
         condense: Whether to condense XML files (remove pretty-printing)
+        skip_validation: Skip validation step
+        force: Pack even if validation fails
+
+    Returns:
+        True if successful, False otherwise
     """
     if not os.path.isdir(input_dir):
         print(f"Error: Directory not found: {input_dir}", file=sys.stderr)
-        sys.exit(1)
+        return False
 
     # Check for required files
     mimetype_path = os.path.join(input_dir, "mimetype")
     if not os.path.exists(mimetype_path):
         print(f"Error: Missing required file: mimetype", file=sys.stderr)
-        sys.exit(1)
+        return False
+
+    # Run validation
+    if not skip_validation:
+        print("Validating HWPX structure...")
+        report = validate_hwpx(input_dir)
+        report.print_report()
+        print()
+
+        if not report.is_valid:
+            if not force:
+                print("Validation failed. Use --force to pack anyway.", file=sys.stderr)
+                return False
+            else:
+                print("Warning: Packing despite validation errors (--force).", file=sys.stderr)
 
     # Collect all files
     files_to_pack = []
@@ -74,25 +101,39 @@ def pack_hwpx(input_dir: str, output_path: str, condense: bool = True) -> None:
 
     print(f"\nSuccessfully created: {output_path}")
     print(f"Total files: {len(files_to_pack)}")
+    return True
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Pack directory into HWPX file",
+        description="Pack directory into HWPX file with validation",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
   python pack.py unpacked/ output.hwpx
   python pack.py unpacked/ output.hwpx --no-condense
+  python pack.py unpacked/ output.hwpx --skip-validation
+  python pack.py unpacked/ output.hwpx --force  # Pack even with errors
         """
     )
     parser.add_argument("input_dir", help="Directory containing unpacked HWPX contents")
     parser.add_argument("output_path", help="Path for the output HWPX file")
     parser.add_argument("--no-condense", action="store_true",
                         help="Don't condense XML files")
+    parser.add_argument("--skip-validation", action="store_true",
+                        help="Skip validation step")
+    parser.add_argument("--force", "-f", action="store_true",
+                        help="Pack even if validation fails")
 
     args = parser.parse_args()
-    pack_hwpx(args.input_dir, args.output_path, condense=not args.no_condense)
+    success = pack_hwpx(
+        args.input_dir,
+        args.output_path,
+        condense=not args.no_condense,
+        skip_validation=args.skip_validation,
+        force=args.force
+    )
+    sys.exit(0 if success else 1)
 
 
 if __name__ == "__main__":
