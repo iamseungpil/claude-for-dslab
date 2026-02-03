@@ -1,14 +1,21 @@
 ---
 name: update-study
-description: Update an experiment study document with verified results, interpretations, hypotheses, and next experiment plans. Reads ML experiment logs, uses experiment-interpreter for analysis and experiment-verifier for fact-checking in an iterative loop. Ensures zero hallucination through log-level cross-checking. Usage examples - `/update-study logs/experiment.log study.md` or `/update-study "logs/exp1.log logs/exp2.log" results/ablation_study.md`
+description: This skill should be used when the user asks to "update study", "analyze new experiments", "update experiment document", or "refresh study notes". Features incremental detection (only analyze NEW experiments), iterative writing improvement loop with quality criteria, zero-hallucination verification, and PDF export. Usage - `/update-study logs/experiment.log study.md` or `/update-study "logs/exp1.log logs/exp2.log" results/ablation_study.md`
+version: 2.0.0
 ---
 
-# Update Study - Iterative Experiment Analysis Skill
+# Update Study - Enhanced Iterative Experiment Analysis
 
-실험 로그를 분석하여 study 문서를 결과/해석/가설/다음 실험으로 업데이트하는 스킬입니다.
-experiment-interpreter와 experiment-verifier 에이전트를 반복 호출하여 hallucination 0건을 보장합니다.
+실험 로그를 분석하여 study 문서를 업데이트하는 스킬입니다.
 
-## 사용법
+## Core Features
+
+1. **Incremental Detection** - 새 실험만 분석 (이미 문서화된 실험 스킵)
+2. **Iterative Writing Loop** - 글 품질 개선 루프 (clarity, coherence, insight depth)
+3. **Zero Hallucination** - 로그 레벨 교차 검증
+4. **PDF Export** - 최종 문서를 PDF로 변환
+
+## Usage
 
 ```
 /update-study <log_path(s)> <study_md_path>
@@ -17,7 +24,7 @@ experiment-interpreter와 experiment-verifier 에이전트를 반복 호출하�
 - `log_path(s)`: 실험 로그 파일 경로 (공백으로 구분하여 여러 개 가능)
 - `study_md_path`: 업데이트할 study markdown 파일 경로
 
-## Arguments 파싱
+## Arguments Parsing
 
 `$ARGUMENTS`에서 마지막 인자가 `.md` 파일이면 study 파일, 나머지는 로그 파일로 파싱합니다.
 
@@ -34,70 +41,99 @@ experiment-interpreter와 experiment-verifier 에이전트를 반복 호출하�
 
 ---
 
-## 워크플로우
+## Workflow Overview
 
 ```
-┌───────────────────────────────────────────────────────────────┐
-│                     /update-study                              │
-├───────────────────────────────────────────────────────────────┤
-│                                                               │
-│  Phase 1: 사전 준비                                            │
-│  ┌─────────────────────────────────────────────────────────┐  │
-│  │  • 로그 파일 존재 확인                                    │  │
-│  │  • study.md 파일 읽기 (기존 내용 보존)                    │  │
-│  │  • 로그에서 실험 config 식별                              │  │
-│  └──────────────────────────┬──────────────────────────────┘  │
-│                              │                                 │
-│                              ▼                                 │
-│  Phase 2: 해석 (experiment-interpreter 에이전트)               │
-│  ┌─────────────────────────────────────────────────────────┐  │
-│  │  • 로그 파일 전체 읽기                                    │  │
-│  │  • 수치 추출 + source citation                           │  │
-│  │  • 기존 study.md 결과와 비교                              │  │
-│  │  • 해석 + 가설 + 다음 실험 생성                           │  │
-│  │  → study.md 업데이트 초안 반환                            │  │
-│  └──────────────────────────┬──────────────────────────────┘  │
-│                              │                                 │
-│                              ▼                                 │
-│  Phase 3: study.md에 초안 작성                                 │
-│  ┌─────────────────────────────────────────────────────────┐  │
-│  │  • 기존 내용 끝에 새 섹션 추가 (append)                   │  │
-│  │  • 이전 결과 절대 수정 안 함                              │  │
-│  └──────────────────────────┬──────────────────────────────┘  │
-│                              │                                 │
-│                              ▼                                 │
-│  Phase 4: 검증 (experiment-verifier 에이전트)                  │
-│  ┌─────────────────────────────────────────────────────────┐  │
-│  │  • 새로 추가된 섹션의 모든 수치 → 로그 대조               │  │
-│  │  • 해석의 논리적 타당성 검증                              │  │
-│  │  • 가설 falsifiability 검증                              │  │
-│  │  • 이전 결과 변경 여부 확인                               │  │
-│  │  → PASS/FAIL + feedback 반환                             │  │
-│  └──────────────────────────┬──────────────────────────────┘  │
-│                              │                                 │
-│                    ┌─────────┴─────────┐                      │
-│                    │   PASS?           │                      │
-│                    └─────────┬─────────┘                      │
-│                     Yes      │      No                        │
-│                      │       │       │                        │
-│                      ▼       │       ▼                        │
-│               ┌──────────┐   │  ┌──────────────────────┐     │
-│               │ 완료!    │   │  │ Phase 2로 복귀       │     │
-│               │ 최종 저장 │   │  │ (피드백 전달,        │     │
-│               └──────────┘   │  │  최대 3회 반복)       │     │
-│                              │  └──────────────────────┘     │
-│                              │                                │
-└──────────────────────────────┴────────────────────────────────┘
+Phase 0: Incremental Detection (NEW)
+  ├── logs/ 스캔
+  ├── 기존 study 파싱 (이미 분석된 실험 식별)
+  └── 새 실험 목록 생성 → 없으면 "No new experiments" 출력 후 종료
+
+Phase 1: File Verification
+  ├── 로그 파일 존재 확인
+  └── study.md 읽기
+
+Phase 2: Interpretation
+  ├── experiment-interpreter 호출
+  └── 메트릭 추출 + 초안 작성
+
+Phase 2b: Writing Quality Loop (NEW)
+  ├── Quality evaluation (clarity, coherence, insight)
+  ├── Revision if needed (definition-first, topic-first)
+  └── Max 3 iterations, pass at score ≥ 80
+
+Phase 3: Append to Document
+  ├── [NEW] 태그로 새 섹션 표시
+  └── Timeline 테이블 업데이트
+
+Phase 4: Verification
+  ├── experiment-verifier 호출
+  ├── 숫자 정확성 검증
+  └── 논리 일관성 검증
+
+Phase 5: Export (NEW)
+  ├── PDF 변환 (pandoc/weasyprint)
+  └── 완료 보고
 ```
 
 ---
 
-## Phase 1: 사전 준비
+## Phase 0: Incremental Detection (NEW)
+
+### Step 0.1: 로그 디렉토리 스캔
+
+```
+1. logs/ 디렉토리에서 모든 로그 파일 목록 생성
+   - 패턴: *_train.log, *_eval.log, *.log
+   - 파일 수정 시간 기준 정렬
+
+2. 입력된 로그 파일 목록과 교차 확인
+```
+
+### Step 0.2: 기존 Study 분석
+
+```
+기존 study.md에서 이미 문서화된 실험 식별:
+
+1. 실험 헤더 패턴 검색:
+   - `### E{N}:` 또는 `### Experiment:`
+   - `## Experiment {N}:`
+
+2. 로그 파일 참조 추출:
+   - `[*_train.log:*]` 형식의 출처 표기
+   - `Source:` 열의 파일명
+
+3. 문서화된 실험 목록 구축:
+   documented_experiments = {
+       "evolve_h_only_train.log",
+       "cross_attn_train.log",
+       ...
+   }
+```
+
+### Step 0.3: 새 실험 결정
+
+```python
+new_experiments = set(input_logs) - set(documented_experiments)
+
+if len(new_experiments) == 0:
+    print("✓ No new experiments to analyze")
+    print(f"  Already documented: {len(documented_experiments)} experiments")
+    exit()  # 종료
+else:
+    print(f"📊 Found {len(new_experiments)} new experiment(s) to analyze:")
+    for exp in new_experiments:
+        print(f"  - {exp}")
+```
+
+---
+
+## Phase 1: File Verification
 
 ### Step 1.1: 파일 확인
 
 ```
-1. 로그 파일 존재 확인
+1. 새 실험 로그 파일 존재 확인
    - 각 log_path에 대해 파일 존재 여부 확인
    - 존재하지 않으면 에러 메시지 출력 후 중단
 
@@ -123,13 +159,13 @@ experiment-interpreter와 experiment-verifier 에이전트를 반복 호출하�
 
 ---
 
-## Phase 2: 해석 (experiment-interpreter 호출)
+## Phase 2: Interpretation (experiment-interpreter)
 
-### Task tool 호출
+### Task Tool 호출
 
 ```
 Task tool 사용:
-- subagent_type: "experiment-interpreter"  (또는 해당 agent가 없으면 "general-purpose")
+- subagent_type: "experiment-interpreter"
 - prompt:
 
   "다음 실험 로그를 분석하고 study.md 업데이트 초안을 생성해주세요.
@@ -152,118 +188,122 @@ Task tool 사용:
   6. 출력은 study.md에 바로 append할 수 있는 markdown 형식
 
   ## 출력 형식
-  아래 템플릿을 정확히 따라주세요:
-
-  ### Experiment: {name} ({YYYY-MM-DD})
-  #### Configuration
-  | Parameter | Value |
-  |-----------|-------|
-  ...
-  #### Results
-  | Metric | Value | Source |
-  |--------|-------|--------|
-  ...
-  #### Comparison with Prior Results
-  ...
-  #### Interpretation
-  ...
-  #### Hypotheses
-  ...
-  #### Next Experiments
-  ..."
-```
-
-### 피드백 반영 (2회차 이상)
-
-Verifier의 feedback이 있는 경우, interpreter에게 전달:
-
-```
-"이전 버전에서 다음 문제가 발견되었습니다. 모든 항목을 수정해주세요:
-
-{feedback_summary 목록}
-
-수정 사항:
-1. [피드백 1에 대한 수정 방향]
-2. [피드백 2에 대한 수정 방향]
-..."
+  references/interpretation-template.md 템플릿을 따라주세요."
 ```
 
 ---
 
-## Phase 3: study.md 업데이트
+## Phase 2b: Writing Quality Loop (NEW)
+
+### Step 2b.1: Quality Evaluation
+
+작성된 초안에 대해 품질 평가 수행:
+
+```
+평가 기준 (references/quality-criteria.md 참조):
+
+1. Definition-First (30점)
+   - 모든 전문 용어가 "X is Y" 형태로 정의되었는가?
+   - 새로운 개념이 사용 전에 정의되었는가?
+
+2. Topic-First Paragraphs (25점)
+   - 모든 문단이 핵심 결과/주장으로 시작하는가?
+   - 첫 문장만 읽어도 문단 내용을 파악할 수 있는가?
+
+3. Compare-Contrast (20점)
+   - 새 결과가 이전 실험과 비교되었는가?
+   - 차이의 원인/해석이 제시되었는가?
+
+4. Insight Depth (15점)
+   - 표면적 기술을 넘어 "왜"에 대한 분석이 있는가?
+   - 예상과 다른 결과에 대한 가설이 있는가?
+
+5. Minimal Adjectives (10점)
+   - 불필요한 수식어가 없는가?
+   - 주관적 표현 대신 구체적 수치가 사용되었는가?
+
+총점: /100
+통과 기준: ≥ 80점
+```
+
+### Step 2b.2: Revision
+
+점수가 80점 미만인 경우 수정:
+
+```
+1. [Critical: Definition Missing]
+   - 미정의 용어 목록 작성
+   - 각 용어에 대해 "X is Y" 정의 추가
+
+2. [Critical: Topic-Last Paragraph]
+   - 문단 재구성: 핵심 → 설명 → 근거 순서로
+
+3. [Warning: No Comparison]
+   - 이전 실험과의 비교 테이블 추가
+   - 차이 분석 문단 추가
+
+4. [Warning: Shallow Insight]
+   - "왜 이런 결과가 나왔는가?" 분석 추가
+   - 가설 강화
+
+5. [Minor: Excessive Adjectives]
+   - "significantly improved" → "+12.5%p"
+   - "much faster" → "2.3x speedup"
+```
+
+### Step 2b.3: Iteration Control
+
+```
+최대 반복: 3회
+
+Iteration 1: 초안 → 품질 평가 → 수정 (필요시)
+  → Score ≥ 80: Phase 3으로 진행
+  → Score < 80: feedback 수집
+
+Iteration 2: 수정안 → 재평가
+  → Score ≥ 80: Phase 3으로 진행
+  → Score < 80: feedback 수집
+
+Iteration 3: 최종 수정 → 재평가
+  → Score ≥ 80: Phase 3으로 진행
+  → Score < 80: 현재 최선 버전으로 진행 + 이슈 보고
+```
+
+---
+
+## Phase 3: Document Update
 
 ### 추가 규칙
 
 1. **Append Only**: 기존 내용 뒤에 새 섹션 추가. 기존 내용 수정 금지.
-2. **구분선**: 새 실험 전에 `---` 구분선 삽입
-3. **날짜 표기**: 실험 실행 날짜 (로그 타임스탬프 기반)
-4. **일관된 포맷**: 아래 템플릿을 정확히 준수
+2. **[NEW] 태그**: 새로 추가된 실험에 `[NEW]` 태그 표시 (다음 업데이트 시 제거)
+3. **구분선**: 새 실험 전에 `---` 구분선 삽입
+4. **날짜 표기**: 실험 실행 날짜 (로그 타임스탬프 기반)
+5. **일관된 포맷**: references/interpretation-template.md 템플릿 준수
 
-### study.md 업데이트 템플릿
+### [NEW] 태그 처리
 
 ```markdown
 ---
 
-### Experiment: {experiment_name} ({YYYY-MM-DD})
+### [NEW] Experiment: {experiment_name} ({YYYY-MM-DD})
 
-#### Configuration
-
-| Parameter | Value |
-|-----------|-------|
-| Config | `{yaml_path}` |
-| Mode | {mode_description} |
-| Compressor | {compressor_type} |
-| Key Params | {relevant_params} |
-| Training | {epochs, lr, batch_size} |
-
-#### Results
-
-| Metric | Value | Source |
-|--------|-------|--------|
-| Accuracy | {X.XX%} | `{log_file}:L{line}` |
-| Train Loss (final) | {X.XXXX} | `{log_file}:L{line}` |
-| Grad Norm (final) | {X.XX} | `{log_file}:L{line}` |
-| Total Cycles | {N} | `{log_file}:L{line}` |
-
-#### Comparison with Prior Results
-
-| Experiment | Accuracy | Δ |
-|-----------|----------|---|
-| {baseline_1} | {X.XX%} | {+/-X.XX%p} |
-| {baseline_2} | {X.XX%} | {+/-X.XX%p} |
-
-#### Interpretation
-
-{2-3 paragraphs of data-grounded interpretation}
-{Compare with expectations from prior hypotheses}
-{Acknowledge limitations and alternative explanations}
-
-#### Hypotheses
-
-**H{N}: {One-sentence falsifiable claim}**
-- Based on: {specific results}
-- Mechanism: {proposed explanation}
-- Prediction: {testable prediction}
-- Falsification: {what would disprove this}
-
-#### Next Experiments
-
-**E{N}: {Experiment name}**
-- Tests: H{N}
-- Config: `{yaml changes}`
-- Expected: {predicted outcome}
-- Priority: {High/Medium/Low}
+...
 ```
+
+다음 `/update-study` 실행 시:
+1. 이전에 추가된 `[NEW]` 태그 모두 제거
+2. 새로 추가되는 섹션에만 `[NEW]` 태그 부여
 
 ---
 
-## Phase 4: 검증 (experiment-verifier 호출)
+## Phase 4: Verification (experiment-verifier)
 
-### Task tool 호출
+### Task Tool 호출
 
 ```
 Task tool 사용:
-- subagent_type: "experiment-verifier"  (또는 해당 agent가 없으면 "general-purpose")
+- subagent_type: "experiment-verifier"
 - prompt:
 
   "다음 study.md 업데이트 내용을 검증해주세요.
@@ -292,8 +332,7 @@ Task tool 사용:
 
 ```python
 if verdict == "PASS":
-    # study.md 최종 저장 확정
-    # 사용자에게 결과 요약 보고
+    # Phase 5로 진행
 elif iteration < 3:
     # feedback_summary를 Phase 2로 전달
     # interpreter에게 수정 요청
@@ -305,68 +344,120 @@ else:
 
 ---
 
-## 반복 제어
+## Phase 5: Export (NEW)
+
+### Step 5.1: Markdown 확정
 
 ```
-최대 반복: 3회
+1. study.md 최종 내용 저장
+2. [NEW] 태그가 포함된 섹션 확인
+```
 
-Iteration 1: interpreter → write → verifier
-  → PASS: 완료
-  → FAIL: feedback 수집
+### Step 5.2: PDF 변환
 
-Iteration 2: interpreter(+feedback) → rewrite → verifier
-  → PASS: 완료
-  → FAIL: feedback 수집
+```
+scripts/export_pdf.py 사용:
 
-Iteration 3: interpreter(+feedback) → rewrite → verifier
-  → PASS: 완료
-  → FAIL: 현재 버전 저장 + 미해결 이슈 보고
+python scripts/export_pdf.py study.md study.pdf
+
+변환 옵션:
+- TOC (Table of Contents) 포함
+- [NEW] 태그 시각적 강조 (노란색 하이라이트)
+- 테이블 깔끔한 포맷팅
+- 코드 블록 문법 강조
+
+Fallback 순서:
+1. pandoc + LaTeX (최상의 품질)
+2. weasyprint (pandoc 없을 시)
+3. Markdown만 저장 (PDF 변환 실패 시 경고)
+```
+
+### Step 5.3: 완료 보고
+
+```
+✅ Update Complete!
+  📄 Markdown: study.md
+  📑 PDF: study.pdf (optional)
+  📊 New experiments: {N}개
+  🔬 Hypotheses: {N}개
+  🧪 Next experiments: {N}개
 ```
 
 ---
 
-## 진행 상황 보고
+## Progress Reporting
 
 실행 중 사용자에게 상태를 보고합니다:
 
 ```
-[Phase 1] 사전 준비...
-  ✓ 로그 파일 확인: {N}개
-  ✓ study.md 읽기 완료 (기존 실험: {M}개)
+[Phase 0] Incremental Detection...
+  ✓ Scanned logs/: {N}개 파일
+  ✓ Already documented: {M}개 실험
+  ✓ New experiments: {K}개 발견
 
-[Phase 2] 해석 생성 (experiment-interpreter)...
+[Phase 1] File Verification...
+  ✓ 로그 파일 확인: {K}개
+  ✓ study.md 읽기 완료
+
+[Phase 2] Interpretation...
   ✓ 수치 추출: {N}개 메트릭
   ✓ 비교 테이블 생성
-  ✓ 가설 {N}개 생성
 
-[Phase 3] study.md 업데이트...
-  ✓ 새 섹션 추가 완료
+[Phase 2b] Writing Quality Loop...
+  → Iteration 1: Score 72/100
+    - Critical: Definition missing (2)
+    - Warning: Topic-last paragraph (1)
+  → Iteration 2: Score 85/100
+    ✓ All critical issues resolved
 
-[Phase 4] 검증 (experiment-verifier)...
+[Phase 3] Document Update...
+  ✓ 새 섹션 추가 ([NEW] 태그)
+
+[Phase 4] Verification...
   → Numerical: {verified}/{total}
   → Logic: {sound}/{total}
-  → Hypotheses: {valid}/{total}
-  → Verdict: PASS/FAIL
+  → Verdict: PASS
 
-[Iteration 2] 피드백 반영...
-  ✓ {N}개 이슈 수정
-  → 재검증: PASS
+[Phase 5] Export...
+  ✓ PDF 변환 완료
 
-✅ 완료! study.md 업데이트됨
-  - 새 실험: {experiment_name}
-  - 정확도: {X.XX%}
-  - 가설: {N}개
-  - 다음 실험: {N}개
+✅ Complete!
+  - New experiments: {experiment_names}
+  - Accuracy: {X.XX%}
+  - Hypotheses: {N}개
+  - Next experiments: {N}개
 ```
 
 ---
 
-## 주의사항
+## Quality Criteria Summary
+
+| Criterion | Weight | Pass Threshold |
+|-----------|--------|----------------|
+| Definition-First | 30점 | 용어 100% 정의 |
+| Topic-First | 25점 | 문단 90% 두괄식 |
+| Compare-Contrast | 20점 | 비교 테이블 필수 |
+| Insight Depth | 15점 | "왜" 분석 포함 |
+| Minimal Adjectives | 10점 | 수치 기반 표현 |
+
+**Overall Pass: ≥ 80점**
+
+---
+
+## Additional Resources
+
+- `references/interpretation-template.md` - 실험 해석 템플릿
+- `references/quality-criteria.md` - 글 품질 평가 상세 기준
+- `scripts/export_pdf.py` - PDF 변환 유틸리티
+
+---
+
+## Cautions
 
 1. **로그 파일이 ground truth**: 로그에 없는 수치는 사용 불가
 2. **Append Only**: 이전 결과를 절대 수정하지 않음
 3. **매 수치에 출처**: `(source: filepath:L행번호)` 필수
 4. **가설은 falsifiable**: 검증 불가능한 가설은 삭제
 5. **최대 3회 반복**: 무한 루프 방지
-6. **사용자 보고**: 각 Phase 완료 시 진행 상황 알림
-7. **기존 가설 연결**: 이번 실험이 이전 가설을 검증하는 경우, 해당 가설의 검증 결과를 명시
+6. **새 실험 우선**: 이미 문서화된 실험은 자동 스킵
+7. **[NEW] 태그**: 새 추가분 명확히 표시
