@@ -1,187 +1,274 @@
-# Experiment Interpretation Template
+# Experiment Report Template
 
-실험 해석 섹션 작성 시 이 템플릿을 따르세요.
+실험 보고서 작성 시 이 템플릿을 따르세요.
+`filtering_effect_seungpil_lee_en.pdf` 수준의 종합 보고서를 목표로 합니다.
 
 ---
 
-## 기본 구조
+## 전체 구조
 
 ```markdown
+# {Title} Experiment Report
+
+**Author**: {name} **Date**: {date} **Project**: {project}
+
+## Executive Summary
+
+{핵심 발견 1-2문단 요약. 과제별 비교 결과를 테이블로 제시.}
+
+| Task | Expected Complexity | Baseline | Proposed | Difference |
+|------|-------------------|----------|----------|------------|
+| {Task A} | {~N calls} | {X.X%} | {Y.Y%} | {+Z.Z%p} |
+| {Task B} | {~M calls} | {X.X%} | {Y.Y%} | {+Z.Z%p} |
+
 ---
 
-### [NEW] Experiment: {experiment_name} ({YYYY-MM-DD})
+## 1. Implementation
 
-#### Configuration
+### 1.1 Overview
 
-| Parameter | Value |
-|-----------|-------|
-| Config | `{yaml_path}` |
-| Mode | {mode_description} |
-| Compressor | {compressor_type} |
-| Key Params | {relevant_params} |
-| Training | {epochs, lr, batch_size} |
+{기능/기법 개요. "X는 Y이다" 형식으로 시작.}
 
-#### Results
+### 1.2 Implementation Structure
 
-| Metric | Value | Source |
-|--------|-------|--------|
-| Accuracy | {X.XX%} | `{log_file}:L{line}` |
-| Train Loss (final) | {X.XXXX} | `{log_file}:L{line}` |
-| Grad Norm (final) | {X.XX} | `{log_file}:L{line}` |
-| Total Cycles | {N} | `{log_file}:L{line}` |
+{단계별 구현 설명. 각 단계에 코드 스니펫 포함.}
 
-#### Comparison with Prior Results
+**Stage 1: {단계명}**
 
-| Experiment | Accuracy | Δ |
-|-----------|----------|---|
-| {baseline_1} | {X.XX%} | baseline |
-| **This (E{N})** | {X.XX%} | {+/-X.XX%p} |
-| {previous_1} | {X.XX%} | {+/-X.XX%p} |
+{설명}
 
-#### Interpretation
+```python
+# {코드 설명}
+{핵심 코드 스니펫}
+```
 
-{Definition-first 원칙에 따른 해석}
+**Stage 2: {단계명}**
 
-{Experiment name}은 {무엇을 하는 실험인지 정의}이다. 이 실험의 핵심 결과는 {핵심 수치}로, 이는 {baseline 대비 비교}를 의미한다.
+{설명 + 코드}
 
-{Compare-contrast 분석}
+**Stage 3: {단계명}**
 
-이전 실험({previous_experiment})과 비교하면, {구체적 차이점}. 이러한 차이가 발생한 이유는 {가설적 설명}으로 추정된다.
+{설명 + 코드}
 
-{Insight depth - "왜"에 대한 분석}
+---
 
-{예상과 다른 결과 또는 예상과 일치하는 결과}에 대해, 가능한 설명은 {mechanism 설명}이다. 이는 {supporting evidence}에 의해 뒷받침된다.
+## 2. Experimental Results
 
-#### Hypotheses
+### 2.1 {Task A}: {핵심 결과 한줄 (e.g., "+15.3%p Improvement")}
 
-**H{N}: {One-sentence falsifiable claim}**
-- Based on: {specific results from this experiment}
-- Mechanism: {proposed explanation}
-- Prediction: {testable prediction - "만약 X라면 Y가 관찰될 것이다"}
-- Falsification: {what would disprove this - "Z가 관찰되면 이 가설은 기각된다"}
+{Figure 1 설명 + 4가지 관점 해석}
 
-**H{N+1}: {Another hypothesis}**
-- Based on: {different result}
-- Mechanism: {explanation}
-- Prediction: {prediction}
-- Falsification: {falsification criteria}
+Figure 1은 {무엇을 보여주는가}를 나타낸다.
 
-#### Next Experiments
+Figure 1(a)는 {metric A}의 변화를 보여준다. {조건 A}에서는 {수치}를 달성했고,
+{조건 B}에서는 {수치}에서 정체되었다. 이 {차이}는 {원인 분석}을 시사한다.
 
-**E{N+1}: {Experiment name}**
-- Tests: H{N}
-- Config changes:
+Figure 1(b)는 {metric B}의 변화를 보여준다. {해석}.
+
+![Figure 1: {캡션}](figures/fig1_{name}.png)
+
+### 2.2 {Task B}: {핵심 결과 한줄}
+
+{Figure 2 설명 + 해석}
+
+![Figure 2: {캡션}](figures/fig2_{name}.png)
+
+### 2.3 {현상 분석 제목 (e.g., "Filtering Effect Varies with Trajectory Length")}
+
+{비교 테이블 + Figure + mechanism 분석}
+
+| Comparison Item | Condition A | Condition B |
+|----------------|-------------|-------------|
+| Effect | {수치} | {수치} |
+| Observation | {설명} | {설명} |
+| Problem Type | {유형} | {유형} |
+
+{Figure 3 참조하여 해석. "왜 이런 차이가 발생하는가?" 분석 필수.}
+
+![Figure 3: {캡션}](figures/fig3_{name}.png)
+
+### 2.4 {한계점 분석 제목 (e.g., "Information Loss from Incorrect Answers")}
+
+{Figure + 근거로 뒷받침되는 분석}
+
+{이 한계점이 왜 발생하는지 mechanism 설명.}
+{실험 데이터로 뒷받침되는 구체적 근거 제시.}
+
+![Figure 4: {캡션}](figures/fig4_{name}.png)
+
+### 2.5 Experimental Setup
+
+| Item | Setting |
+|------|---------|
+| Model | {model_name} |
+| GPU | {gpu_spec} |
+| Dataset | {datasets} |
+| Algorithm | {algorithm} |
+| Batch size | {batch_size} |
+| Learning rate | {lr} |
+| Max turns | {max_turns} |
+
+---
+
+## 3. Proposed Improvements
+
+### 3.1 {방법 A 제목 (e.g., "Dynamic Filtering: Trajectory-level Threshold Adaptation")}
+
+{문제 정의}: Section 2.3에서 확인한 바와 같이, {문제 설명}.
+
+{해결 방법}: {핵심 아이디어 설명}.
+
+```python
+# {구현 예시}
+{pseudo-code 또는 실제 코드}
+```
+
+{기대 효과}: {예상되는 개선점 + 근거}
+
+### 3.2 {방법 B 제목}
+
+{문제 → 해결책 → 코드 → 기대 효과}
+
+---
+
+## 4. Limitations
+
+{실험의 제한사항을 솔직하게 기술}
+
+- **실험 환경**: {모델 크기, GPU 수 등의 제약}
+- **일반화**: {threshold/파라미터의 일반화 가능성}
+- **Task 범위**: {실험된 task의 범위와 미검증 영역}
+
+---
+
+## 5. Conclusion
+
+{핵심 발견 요약 (수치 포함)}
+{교훈: 왜 이 결과가 중요한가}
+{향후 방향: 구체적인 다음 단계}
+
+---
+
+## 6. Next Experiments
+
+### E{N+1}: {실험명}
+- **Tests**: H{N} ({가설 한줄 요약})
+- **Config changes**:
   ```yaml
-  recursive_memory:
-    {parameter}: {new_value}  # was: {old_value}
+  {parameter}: {new_value}  # was: {old_value}
   ```
-- Expected: {predicted outcome if H{N} is correct}
-- Priority: {High/Medium/Low}
+- **Expected**: {가설이 맞다면 예상되는 결과}
+- **Priority**: {High/Medium/Low}
 
-**E{N+2}: {Another experiment}**
-- Tests: H{N+1}
-- Config changes:
-  ```yaml
-  {config_changes}
-  ```
-- Expected: {prediction}
-- Priority: {High/Medium/Low}
+### E{N+2}: {실험명}
+- **Tests**: H{N+1}
+- **Config changes**: {변경사항}
+- **Expected**: {예상 결과}
+- **Priority**: {High/Medium/Low}
+
+---
+
+## References
+
+1. {Reference 1}
+2. {Reference 2}
 ```
 
 ---
 
 ## 작성 지침
 
-### 1. Configuration 섹션
+### Executive Summary
 
-- 모든 파라미터 값은 로그/config 파일에서 직접 확인
-- 학습 관련 핵심 파라미터만 포함 (불필요한 상세 생략)
-- 이전 실험과 다른 파라미터는 **굵게** 표시
+- 한눈에 핵심 결과를 파악할 수 있어야 함
+- 비교 테이블 필수 (Task × Condition × Result)
+- 가장 중요한 발견을 1-2문장으로 요약
 
-### 2. Results 섹션
+### Implementation 섹션
 
-- **모든 수치에 출처 필수**: `{log_file}:L{line}` 형식
-- 소수점 일관성 유지 (accuracy: 2자리, loss: 4자리)
-- 핵심 메트릭 우선 배치 (accuracy → loss → grad_norm → cycles)
+- 각 Stage에 코드 스니펫 포함
+- "왜 이렇게 구현했는가?" 설명
+- 이전 구현(baseline)과의 차이점 명시
 
-### 3. Comparison 섹션
+### Experimental Results 섹션
 
-- 반드시 baseline과 비교
-- 직전 실험과 비교
-- 동일 계열 실험들과 비교 (있는 경우)
-- Δ는 퍼센트포인트(%p) 단위로 표기
+- **모든 Figure에 대해 4가지 관점**:
+  1. **무엇을 보여주는가** (Figure 설명)
+  2. **핵심 관찰** (수치 기반)
+  3. **원인 분석** ("왜" + mechanism)
+  4. **시사점** (다음 실험에 대한 함의)
 
-### 4. Interpretation 섹션
+- Figure 설명은 서브플롯별로 개별 해석
+  - "Figure 1(a)는 ... Figure 1(b)는 ..."
 
-**Definition-First 원칙**:
-- 첫 문장: 실험이 무엇인지 정의
-- "X는 Y이다" 형태로 시작
+### Proposed Improvements 섹션
 
-**Topic-First 원칙**:
-- 각 문단의 첫 문장 = 핵심 주장/결과
-- 뒤따르는 문장은 근거/설명
+- 문제 → 해결책 → 코드 → 기대 효과 구조
+- 코드 예시는 실행 가능한 수준
+- 실현 가능성과 복잡도 명시
 
-**Compare-Contrast 원칙**:
-- 새 결과 vs 이전 결과 명시적 비교
-- 차이의 원인 분석 포함
+### Next Experiments 섹션
 
-**Insight Depth**:
-- "왜"에 대한 가설적 설명 필수
-- 표면적 기술 지양 ("accuracy가 높다" → "왜 높은가?")
-
-### 5. Hypotheses 섹션
-
-**Falsifiable 요건**:
-- Prediction: 구체적이고 측정 가능한 예측
-- Falsification: 명확한 기각 조건
-
-**좋은 예**:
-```
-**H3: Cross-attention은 context와 latent 간 정보 흐름을 개선한다**
-- Prediction: Cross-attention 제거 시 accuracy가 5%p 이상 하락할 것이다
-- Falsification: Cross-attention 제거 후 accuracy 변화가 2%p 미만이면 기각
-```
-
-**나쁜 예**:
-```
-**H3: Cross-attention이 도움이 된다**  ← 모호함
-- Prediction: 성능이 좋아질 것이다  ← 측정 불가
-- Falsification: 없음  ← 기각 조건 없음
-```
-
-### 6. Next Experiments 섹션
-
-- Config 변경 사항 구체적으로 명시
-- 어떤 가설을 검증하는지 연결
+- 반드시 가설(H)과 연결
+- Config 변경사항 구체적으로 (YAML diff)
 - 예상 결과와 그 근거 제시
-- Priority 기준:
-  - High: 핵심 가설 검증, 큰 성능 개선 예상
-  - Medium: 보조 가설 검증, 중간 규모 개선
-  - Low: 탐색적 실험, 작은 변형
+
+---
+
+## Figure 생성 가이드
+
+### scripts/generate_plots.py 사용
+
+```bash
+# 4-subplot panel (학습 동태)
+python scripts/generate_plots.py panel \
+    --data-files baseline.csv proposed.csv \
+    --labels "Baseline" "Proposed" \
+    --metrics accuracy ratio reward_std count \
+    --title "Task A Training Dynamics" \
+    --output figures/fig1_training_dynamics.png
+
+# 조건별 비교 차트
+python scripts/generate_plots.py comparison \
+    --data-files task_a.csv task_b.csv \
+    --labels "Task A" "Task B" \
+    --metric accuracy \
+    --title "Effect Comparison" \
+    --output figures/fig3_comparison.png
+
+# 단일 metric 추이 + annotation
+python scripts/generate_plots.py trend \
+    --data-files experiment.csv \
+    --labels "Experiment" \
+    --metric unexpected_tool_call_ratio \
+    --annotate "318-345:EXPLOSION (max 56%)" \
+    --threshold 20 \
+    --title "Ratio During Training" \
+    --output figures/fig6_ratio_trend.png
+```
 
 ---
 
 ## Source Citation 규칙
 
 ```
-✓ 올바른 예:
-| Accuracy | 87.34% | `logs/evolve_h_only_train.log:L1542` |
+올바른 예:
+| Accuracy | 74.1% | `logs/gsm8k_filter_on.log:L1542` |
 
-✗ 잘못된 예:
-| Accuracy | 87.34% |  (출처 없음)
-| Accuracy | ~87% | `logs/evolve_h_only_train.log` (라인 번호 없음)
-| Accuracy | 87.34% | 로그 참조 (파일명 없음)
+잘못된 예:
+| Accuracy | 74.1% |  (출처 없음)
+| Accuracy | ~74% | `logs/gsm8k.log` (라인 번호 없음)
 ```
 
 ---
 
 ## 품질 체크리스트
 
-작성 완료 후 확인:
-
-- [ ] 모든 수치에 `{file}:L{line}` 출처가 있는가?
-- [ ] 실험 정의가 첫 문장에 있는가?
-- [ ] 이전 실험과의 비교가 있는가?
-- [ ] "왜"에 대한 분석이 있는가?
-- [ ] 모든 가설이 falsifiable한가?
-- [ ] 다음 실험이 가설과 연결되어 있는가?
+- [ ] Executive Summary에 비교 테이블이 있는가?
+- [ ] 모든 수치에 출처(file:line)가 있는가?
+- [ ] 모든 Figure에 4가지 관점 해석이 있는가?
+- [ ] "왜"에 대한 mechanism 분석이 있는가?
+- [ ] Proposed Improvements에 코드 예시가 있는가?
+- [ ] Limitations가 솔직하게 기술되어 있는가?
+- [ ] Next Experiments가 가설과 연결되어 있는가?
+- [ ] Config 변경사항이 구체적인가?
