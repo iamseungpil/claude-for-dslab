@@ -1,0 +1,23 @@
+{
+  "skill_name": "academic-latex-pipeline",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "나 Obsidian에 쓴 서베이 논문 MD 파일 있는데, 이걸 PDF로 만들고 싶어. 한국어로 된 거라 폰트 지원 필요하고, Mermaid 다이어그램도 있어. build_latex.py 돌리면 되는건가?",
+      "expected_output": "Skill triggers and guides user through the full Phase 1-5 pipeline. Identifies Korean font requirement, Mermaid→TikZ conversion need, and suggests running build_latex.py with proper compilation steps.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "survey_main.pdf를 봤는데 25페이지 테이블이 오른쪽으로 넘치고, 6페이지에 Mermaid placeholder가 그대로 남아있어. wikilink [[Paper]] 형태도 몇 군데 보여. 수정해줘.",
+      "expected_output": "Skill triggers for Phase 3 (format review) issues. Addresses table overflow (column width fix), Mermaid placeholder replacement (TikZ), and wikilink cleanup (regex in build script). Recompiles and validates.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "이 LaTeX 서베이 프로젝트를 GitHub에 올리고 싶어. Obsidian 노트는 빼고 tex, pdf, bib, build 스크립트만 포함하는 repo를 만들어줘.",
+      "expected_output": "Skill triggers for Phase 5 (git management). Creates per-project repo with selective file inclusion (.tex, .pdf, .bib, build_latex.py), proper .gitignore, excludes .md source and Obsidian artifacts.",
+      "files": []
+    }
+  ]
+}
