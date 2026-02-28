@@ -1,7 +1,7 @@
 {
   "name": "dslab-research-suite",
-  "version": "0.1.0",
-  "description": "Academic research toolkit for DS Lab: arxiv paper survey, digest, iterative academic writing, LaTeX PDF pipeline, and research visualization.",
+  "version": "0.2.0",
+  "description": "Academic research toolkit for DS Lab: multi-source paper search (arXiv, PubMed, Google Scholar, bioRxiv), survey generation, paper digest, iterative academic writing, LaTeX PDF pipeline, research visualization, and code review.",
   "author": {
     "name": "Seungpil"
   },
@@ -10,9 +10,12 @@
     "academic",
     "research",
     "arxiv",
+    "google-scholar",
+    "pubmed",
     "latex",
     "survey",
     "paper-digest",
+    "code-review",
     "korean"
   ]
 }

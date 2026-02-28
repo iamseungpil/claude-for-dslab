@@ -9,6 +9,14 @@
         "--storage-path",
         "${HOME}/.arxiv-mcp-server/papers"
       ]
+    },
+    "paper-search-mcp": {
+      "command": "uv",
+      "args": [
+        "tool",
+        "run",
+        "paper-search-mcp"
+      ]
     }
   }
 }
