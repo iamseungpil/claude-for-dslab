@@ -16,6 +16,7 @@ A .hwpx file is a ZIP archive containing XML files, based on the OWPML (Open Wor
 | Read/analyze content | `hwpxjs` or unpack for raw XML |
 | Create new document | Use `hwpxjs` - see Creating New Documents below |
 | Edit existing document | Unpack → edit XML → repack - see Editing Existing Documents below |
+| **Insert images** | **Use lxml with complete hp:pic structure** - see [references/image-insertion.md](references/image-insertion.md) |
 
 ### Converting .hwp to .hwpx
 
@@ -261,32 +262,26 @@ python scripts/pack.py unpacked/ output.hwpx
 
 ### Images
 
-**CRITICAL: `<hp:pic>` MUST be inside `<hp:run>`, followed by empty `<hp:t/>`**
+**⚠️ CRITICAL: Image insertion requires ALL 15 child elements in hp:pic. Missing elements cause crashes!**
 
-1. Add image file to `BinData/`
+See [references/image-insertion.md](references/image-insertion.md) for the **complete required structure**.
+
+**Quick checklist for image insertion:**
+
+1. Copy image file to `BinData/`
 2. Add to manifest `Contents/content.hpf`:
 ```xml
 <opf:item id="image1" href="BinData/image1.png" media-type="image/png" isEmbeded="1"/>
 ```
-3. Reference in section0.xml:
-```xml
-<hp:p id="0" paraPrIDRef="38" styleIDRef="41">
-  <hp:run charPrIDRef="0">
-    <hp:pic id="12345" zOrder="0" numberingType="PICTURE" textWrap="TOP_AND_BOTTOM">
-      <hp:orgSz width="7200" height="7200"/>  <!-- 1 inch = 7200 HWP units -->
-      <hp:curSz width="3600" height="3600"/>  <!-- Display: 0.5 inch -->
-      <hc:img binaryItemIDRef="image1" bright="0" contrast="0" effect="REAL_PIC" alpha="0"/>
-      <hp:sz width="3600" widthRelTo="ABSOLUTE" height="3600" heightRelTo="ABSOLUTE"/>
-      <hp:pos treatAsChar="1" horzRelTo="COLUMN" horzAlign="CENTER" vertRelTo="PARA" vertAlign="TOP"/>
-    </hp:pic>
-    <hp:t/>  <!-- REQUIRED: empty text element after hp:pic -->
-  </hp:run>
-</hp:p>
-```
+3. Insert complete `<hp:pic>` with ALL 15 elements (use lxml, not string replacement)
+
+**Minimum required hp:pic elements** (in order):
+1. `hp:offset` 2. `hp:orgSz` 3. `hp:curSz` 4. `hp:flip` 5. `hp:rotationInfo`
+6. `hp:renderingInfo` 7. `hc:img` 8. `hp:imgRect` 9. **`hp:imgClip`** ⚠️
+10. `hp:inMargin` 11. **`hp:imgDim`** ⚠️ 12. **`hp:effects`** ⚠️
+13. `hp:sz` 14. `hp:pos` 15. `hp:outMargin`
 
 **Size units:** HWP uses 1/7200 inch units. **1mm ≈ 283.5 units** (7200 ÷ 25.4)
-
-For safe image insertion using lxml, see [references/image-insertion.md](references/image-insertion.md).
 
 ### Page Break
 
