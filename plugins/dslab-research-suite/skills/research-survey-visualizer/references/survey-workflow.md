@@ -10,6 +10,7 @@ Detailed methodology for conducting research surveys.
 Primary:   "[Researcher Name] [Year] publications"
 Secondary: "[Researcher Name] Google Scholar"
 Tertiary:  "[Researcher Name] [Institution] research"
+For single paper: fetch arxiv HTML directly
 ```
 
 ### What to Collect
@@ -32,9 +33,9 @@ For each paper found:
 ### Target: 3-7 papers
 
 - Too few → incomplete picture
-- Too many → artifact becomes overwhelming
+- Too many → too many widgets, overwhelming
 
-## Step 3: Deep Dive Protocol
+## Step 3: Deep Dive Protocol — Insight-First
 
 For each selected paper, perform web search:
 
@@ -44,33 +45,35 @@ For each selected paper, perform web search:
 "[Paper Title] github"
 ```
 
-### Information Extraction Template
+### Information Extraction Template (Why→What→How order)
 
 ```markdown
 ## [Paper Title]
 
-### Problem Statement
-- What existing limitation does this address?
-- Why do current methods fail?
-- What's the practical impact of this problem?
+### 1. CONTEXT (왜 이게 문제인가?)
+- Concrete failure scenario of existing methods
+- Root cause analysis (cause → effect chain)
+- Intuitive analogy for non-expert reader
+- "Everyone assumed X, but..."
 
-### Key Insight / Discovery
-- What novel observation enables the solution?
-- Why wasn't this discovered before?
+### 2. INSIGHT (뭘 깨달았나?)
+- The observation others missed
+- Why this insight makes the solution obvious
+- "If the problem is actually X, then naturally we should Y"
 
-### Method (3-5 steps)
-1. Step 1: [Action] → [Result]
-2. Step 2: [Action] → [Result]
-...
+### 3. METHOD (어떻게 해결했나?)
+- Step 1: [Action] → [Result] (because of insight)
+- Step 2: [Action] → [Result]
+- ...
+- Connection back to insight at each step
 
-### Baseline Comparison Table
-| Baseline | Their Approach | Limitation | Our Solution |
-|----------|---------------|------------|--------------|
-| Method A | Does X | Ignores Y | Handles Y via Z |
+### 4. EVIDENCE (왜 믿을 수 있나?)
+| Baseline | Why it fails | Our approach | Result |
+|----------|-------------|--------------|--------|
+| Method A | Ignores X   | Handles X    | +15%   |
 
-### Quantitative Results
-- Metric 1: X% improvement on [benchmark]
-- Metric 2: Y× speedup on [task]
+- Concrete failure-vs-success comparison
+- "X collapsed at N=1000, ours held steady"
 ```
 
 ## Step 4: Cross-Paper Analysis
@@ -82,14 +85,33 @@ After analyzing all papers, identify:
 3. **Collaborator patterns**: Frequent co-authors
 4. **Open problems**: What's not yet solved
 
-## Step 5: Verify Before Visualization
+## Step 5: Plan Widget Sequence
 
-Checklist before creating artifact:
-- [ ] Each paper has clear problem statement
-- [ ] At least 3 baselines per paper with specific limitations
-- [ ] Quantitative metrics collected
-- [ ] Method steps are concrete (not vague)
-- [ ] Architecture flow is understood
+Before creating any widgets, plan the visualization sequence for each paper:
+
+### Per-Paper Widget Checklist
+
+- [ ] **WHY widget designed**: What parameter will the user adjust? What failure will they see?
+  - Identified the key variable that reveals the problem
+  - Designed the visual feedback (chart type, metric cards)
+  - Written the instruction hint ("Try moving X toward Y...")
+- [ ] **WHAT diagram designed**: What's the core structure to show?
+  - Chosen diagram type (flowchart / structural / illustrative)
+  - Identified 4-6 key nodes with sendPrompt() questions
+  - Checked that text fits in boxes (chars × 8px + padding ≤ box width)
+- [ ] **HOW widget designed**: What will the user operate?
+  - The proposed method's key parameter as a slider/toggle
+  - Visual showing the solution working
+  - Comparison mode (before/after or A/B) planned
+- [ ] **Narrative arc confirmed**: Context→Insight→Method→Evidence order
+- [ ] **Text bridges written**: What goes between each widget
+
+### Multi-Paper Additional Checks
+
+- [ ] Unifying theme identified
+- [ ] Research landscape overview SVG planned
+- [ ] Cross-paper comparison widget dimension chosen
+- [ ] sendPrompt() navigation between papers designed
 
 ## Common Pitfalls
 
@@ -99,3 +121,6 @@ Checklist before creating artifact:
 | Missing baselines | Check Related Work section, search "[paper] vs" |
 | No architecture details | Look for method figure, GitHub code structure |
 | Surface-level comparison | Find specific failure cases of baselines |
+| Method without motivation | Always extract CONTEXT and INSIGHT before METHOD |
+| Static diagram for dynamic concept | If there's a parameter that changes behavior, use interactive HTML |
+| No concrete analogy | Find a physical/everyday metaphor for the core mechanism |
