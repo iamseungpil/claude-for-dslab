@@ -1,0 +1,23 @@
+{
+  "name": "dslab",
+  "owner": {
+    "name": "Seungpil Lee"
+  },
+  "metadata": {
+    "description": "DS Lab plugins for academic research, scientific skills, and code review workflows.",
+    "version": "0.2.0"
+  },
+  "plugins": [
+    {
+      "name": "dslab-research-suite",
+      "description": "Academic research toolkit: paper search, survey generation, LaTeX pipeline, iterative writing, code review, and more.",
+      "version": "0.2.0",
+      "author": {
+        "name": "Seungpil Lee"
+      },
+      "repository": "https://github.com/iamseungpil/claude-for-dslab",
+      "keywords": ["academic", "research", "latex", "survey", "korean"],
+      "source": "./plugins/dslab-research-suite"
+    }
+  ]
+}
