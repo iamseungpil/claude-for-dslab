@@ -1,7 +1,7 @@
 {
   "name": "dslab-research-suite",
-  "version": "0.3.0",
-  "description": "Academic research toolkit for DS Lab: multi-source paper search (arXiv, PubMed, Google Scholar, bioRxiv), survey generation, paper digest, iterative academic writing, LaTeX PDF pipeline, research visualization, code review, and 12 specialized research agents.",
+  "version": "0.3.1",
+  "description": "Academic research toolkit for DS Lab: multi-source paper search (arXiv, PubMed, Google Scholar, bioRxiv), survey generation, paper digest, iterative academic writing, LaTeX PDF pipeline, research visualization, code review, paper readability review, and 12 specialized research agents.",
   "author": {
     "name": "Seungpil"
   },
