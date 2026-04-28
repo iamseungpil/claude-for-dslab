@@ -25,6 +25,11 @@ chmod +x install.sh
 | `paper-digest` | 논문 요약을 소셜 공유용(Discord/Slack/Twitter)으로 생성. 인사이트 중심 단일 문단 |
 | `survey-paper` | arxiv 논문을 Obsidian 서베이 노트로 변환. Digest + Iterative Writing + 플로우 다이어그램 |
 | `update-study` | Study 노트 업데이트 |
+| `humanize-korean` | AI(ChatGPT·Claude·Gemini)가 쓴 한글 글의 "AI 티"(번역투, 기계적 병렬, 관용구 등 10대 카테고리)를 탐지·윤문. Fast/Strict 두 모드 |
+
+슬래시 명령:
+- `/humanize <텍스트 또는 파일>` — humanize-korean 풀 파이프라인 실행
+- `/humanize-redo` — 가장 최근 윤문 결과를 카테고리·강도 조정해 2차 윤문
 
 ## Agents (자동 호출)
 

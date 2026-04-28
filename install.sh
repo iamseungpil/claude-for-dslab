@@ -12,6 +12,7 @@ echo "Installing Claude Code skills and agents..."
 # Create directories if they don't exist
 mkdir -p "$CLAUDE_DIR/skills"
 mkdir -p "$CLAUDE_DIR/agents"
+mkdir -p "$CLAUDE_DIR/commands"
 
 # Install skills (directories)
 for skill_dir in "$SCRIPT_DIR/skills/"*/; do
@@ -43,6 +44,22 @@ for agent_file in "$SCRIPT_DIR/agents/"*.md; do
     echo "  Installed agent: ${agent_name%.md}"
 done
 
+# Install slash commands (individual files)
+if [ -d "$SCRIPT_DIR/commands" ]; then
+    for cmd_file in "$SCRIPT_DIR/commands/"*.md; do
+        [ -e "$cmd_file" ] || continue
+        cmd_name=$(basename "$cmd_file")
+        target_file="$CLAUDE_DIR/commands/$cmd_name"
+
+        if [ -L "$target_file" ]; then
+            rm "$target_file"
+        fi
+
+        ln -sf "$cmd_file" "$target_file"
+        echo "  Installed command: /${cmd_name%.md}"
+    done
+fi
+
 echo ""
 echo "Installation complete!"
 echo ""
@@ -51,5 +68,8 @@ ls -1 "$CLAUDE_DIR/skills/" 2>/dev/null | sed 's/^/  - /'
 echo ""
 echo "Agents installed:"
 ls -1 "$CLAUDE_DIR/agents/" 2>/dev/null | sed 's/.md$//' | sed 's/^/  - /'
+echo ""
+echo "Commands installed:"
+ls -1 "$CLAUDE_DIR/commands/" 2>/dev/null | sed 's/.md$//' | sed 's/^/  - \//'
 echo ""
 echo "To update, run: cd $SCRIPT_DIR && git pull"
