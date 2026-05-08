@@ -1,6 +1,6 @@
 ---
 name: paper-section-rewrite
-description: 학술 논문의 한 섹션(서론/관련 연구/방법/결과/논의)을 LLM이 단계적으로 분석·개선하는 윤문 스킬. 사용자에게 묻지 않고 자율적으로 (1)의도 1문장 추출 → (2)내용 1문장 추출 → (3)단락 lead + R1~R5 점검 → (4)단락별 문장 카테고리 라벨링 + 권장 흐름 비교 → (5)통합 critic → (6)수식 감사 → (7)LaTeX 빌드 순서로 작동. academic-writing-trainer의 학습 흐름과 동일한 분석 순서를 내부적으로 적용해 출력. 노션 4축 평가(주제·내용·구성·표현)와 R1~R5 합평 패턴, 9가지 서술 방식을 모두 적용한다. KO/EN 양쪽 지원. critic은 Claude 본인이 같은 대화 안에서 수행 (외부 도구 불필요). MANDATORY TRIGGERS - 섹션 다시 쓰기, 섹션 윤문, 풀어쓰기, 두괄식, paper section rewrite, ML-beginner accessibility, notation audit, em-dash 0
+description: 학술 논문의 한 섹션을 LLM이 자율적으로 분석·개선하는 윤문 스킬. 의도 1문장 → 내용 1문장 → 단락 lead + R1~R5 → 문장 카테고리 라벨링 + 단문 게이트 → 통합 critic → 수식 감사 → LaTeX 빌드 순서. 한 문장 한 역할(One Sentence One Role) 강제 — 두 카테고리 짊어진 문장은 즉시 분할. KO 50자 / EN 20 words 단문 디폴트. 노션 4축 평가, R1~R5 합평 패턴, 9가지 서술 방식 모두 적용. KO/EN 지원. critic은 Claude 본인이 같은 대화 안에서 수행. MANDATORY TRIGGERS - 섹션 다시 쓰기, 섹션 윤문, 풀어쓰기, 두괄식, paper section rewrite, ML-beginner accessibility, notation audit, em-dash 0, 단문, 한 문장 한 역할, one sentence one role
 ---
 
 # Paper Section Rewrite v3
@@ -219,6 +219,28 @@ S3 [과정]   "먼저 뉴로-심볼릭 모듈이 ... 그 뒤 ... 마지막에 ..
 흐름: 정의 → 분석 → 과정  ✓ 권장 정확히 일치
 역할 정합도: 5/5
 ```
+
+#### Step 3.i.4b — 단문 게이트 (Hard Rule) ★
+
+재작성된 모든 문장이 **정확히 하나의 카테고리**만 가지는지 점검. 두 카테고리를 짊어진 문장(예: 정의+인과)이 하나라도 남아 있으면 substep 자동 fail → 분할 후 재라벨.
+
+```
+P_i 단문 게이트:
+S1 [정의]              ✓ 단일 카테고리
+S2 [혼합:비교+평가]    ✗ "X는 Y와 달리 Z를 더 잘 처리한다"
+                          → 분할: "X는 Y와 다르다.[비교] X는 Z를 Y보다 더 잘 처리한다.[평가]"
+S3 [정의]              ✓
+```
+
+**검출 규칙**: 한 문장 안에 다른 두 서술 방식이 동시에 들어 있는가. `-며 / -고 / -지만 / -에 의해` 등으로 두 절을 잇고 각 절이 다른 카테고리면 분할.
+
+**예외**: 시간·장소 부사절, 인용절은 카테고리 외로 인정 (`2024년 보고된 GPT-4 결과는 X를 보여준다` → [보고] 단일).
+
+**길이 가이드**: KO 50자 / EN 20 words 이내 권장. 길이만으로 fail은 아니지만 길이 + 카테고리 2개가 함께 잡히면 우선순위 최상.
+
+**하이브리드 라벨 금지**: `[정의(+인과)]` 형태는 사용 금지 — 그건 분할 회피다. 무조건 `[혼합:A+B] ✗`로 표기하고 분할 처리한다.
+
+상세 규약은 `references/writing-principles-ko.md`의 "단문 원칙 — One Sentence, One Role" 절 참조.
 
 #### Step 3.i.5 — 정량 grep + 4축 critic
 
