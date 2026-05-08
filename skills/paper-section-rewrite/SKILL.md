@@ -5,12 +5,12 @@ description: 학술 논문의 한 섹션(서론/관련 연구/방법/결과/논�
 
 # Paper Section Rewrite
 
-학술 논문의 한 섹션을 받아서 두 단계의 critic loop로 다듬는다.
+학술 논문의 한 섹션을 받아서 두 단계의 **codex critic loop**로 다듬는다.
 
-1. **구조 critic loop**: 단락 outline을 먼저 짜고 self-eval로 다듬는다.
-2. **본문 critic loop**: 작성된 prose를 self-eval로 다듬는다.
+1. **구조 codex critic loop**: 단락 outline을 먼저 짜고 codex CLI로 검토받는다.
+2. **본문 codex critic loop**: 작성된 prose를 codex CLI로 검토받는다.
 
-마지막에 수식·notation 감사 + LaTeX 빌드 검증을 수행한다.
+마지막에 수식·notation 감사 + LaTeX 빌드 검증을 수행한다. codex feedback은 모든 phase에서 외부 검증으로 활용된다.
 
 ## When to use
 
@@ -61,14 +61,14 @@ description: 학술 논문의 한 섹션(서론/관련 연구/방법/결과/논�
 - 선행 섹션 요약 (중복 회피용)
 - 사용 가능한 인용 키 / 수식 심볼 / 약어 사전
 
-## Phase 1: 구조 plan + critic loop
+## Phase 1: 구조 plan + codex critic loop
 
 먼저 단락 outline을 구성한다. 각 단락에 대해 다음을 명시한다.
 - **Lead sentence**: 그 단락의 insight 한 줄
 - **Function**: 의도(질문) / 방법 / 결과 / 해석 중 어느 역할인지
 - **Citations to include / defer**
 
-그 다음 self-eval로 다음을 점검한다.
+그 다음 codex CLI를 비대화형으로 호출해 다음 rubric을 검토받는다.
 
 | 항목 | 통과 기준 |
 |---|---|
@@ -78,7 +78,12 @@ description: 학술 논문의 한 섹션(서론/관련 연구/방법/결과/논�
 | 자기 완결성 | 다른 섹션 안 봐도 이해 가능한가 |
 | ML 비전공자 접근성 | jargon이 inline gloss와 함께 도입되는가 |
 
-발견된 문제는 outline에 반영해 다시 critic 돌린다. CONVERGED 될 때까지 최대 3 라운드.
+호출 형식 (예시):
+```bash
+cat /tmp/codex_plan_review.md | codex exec --skip-git-repo-check - 2>&1 | tail -100
+```
+
+codex가 PASS / MINOR / MAJOR + punch list로 답한다. NEEDS_WORK이면 outline에 반영해 다시 codex 돌린다. CONVERGED 될 때까지 최대 3 라운드.
 
 ## Phase 2: 본문 작성
 
@@ -92,9 +97,9 @@ description: 학술 논문의 한 섹션(서론/관련 연구/방법/결과/논�
 - **Scope-honest hedging**: "관찰", "시사", "보고된다" 사용 / "증명", "확립" 회피
 - **Korean academic register**: "행동 layer" → "행동 층", "instruction-following" → "지시 따르기"
 
-## Phase 3: 본문 critic loop
+## Phase 3: 본문 codex critic loop
 
-작성된 prose를 self-eval로 점검한다.
+작성된 prose를 codex CLI에 보내 다음 rubric으로 점검받는다.
 
 | 항목 | 점검 |
 |---|---|
@@ -108,7 +113,12 @@ description: 학술 논문의 한 섹션(서론/관련 연구/방법/결과/논�
 | 중복 표현 | 다른 섹션과 동일 표현 X |
 | 자기 완결성 | 다른 섹션 미참조로 읽혀야 |
 
-NEEDS_WORK이면 punch list를 도출한 뒤 적용하고 다시 critic 돌린다. CONVERGED 될 때까지 최대 3 라운드.
+호출 형식 (예시):
+```bash
+cat /tmp/codex_prose_review.md | codex exec --skip-git-repo-check - 2>&1 | tail -120
+```
+
+codex가 PASS / MINOR / MAJOR + punch list로 답한다. NEEDS_WORK이면 punch list를 도출한 뒤 적용하고 다시 codex 돌린다. CONVERGED 될 때까지 최대 3 라운드.
 
 ## Phase 4: 수식·notation 감사
 
