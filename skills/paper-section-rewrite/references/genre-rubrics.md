@@ -72,6 +72,44 @@
 | 4 | 해석 | 결과가 가설을 어떻게 지지·반박하는가 |
 | 5 | 한계 | 일반화 가능 범위와 위협 |
 
+### 결과/논의 섹션 내부 권장 흐름 ★
+
+논문의 결과·논의 섹션을 본 스킬이 다룰 때 단락 lead들이 다음 4단으로 배열되는 것이 권장된다. paper-section-rewrite Level 2 Step 2.4의 게이트가 이 흐름을 점검한다.
+
+```
+의도(질문) → 방법 요약 → 결과 → 해석
+```
+
+| 단계 | lead의 사명 | 권장 시그널 표현 | 길이 |
+|---|---|---|---|
+| **의도(질문)** | 본 실험·본 단락이 어떤 질문을 푸는지 한 문장 | "본 실험은 ~를 검증한다 / ~인지 묻는다" | 1문장 |
+| **방법 요약** | 그 질문을 어떤 셋업으로 검증하는지 한 문장 (디테일은 부록·이전 섹션 참조 X — **자기 완결적 1줄 요약** 패러프레이징) | "ARC 1k에 X 모델을 zero-shot으로 평가한다" | 1문장 |
+| **결과** | 핵심 수치를 본 단락의 thesis로 (단순 나열 X, 가장 중요한 수치 한 줄) | "X는 zero-shot 78%로 baseline 대비 +12%p" | 1문장 |
+| **해석** | 그 결과가 무엇을 의미하는지 (단순 재진술 X, **왜 그런 차이가 났는지**에 답) | "이 차이는 사전 지식 갱신 모듈이 OOD 구조를 부분적으로 일반화하기 때문이다" | 1-2문장 |
+
+### 자주 보는 안티패턴
+
+| 위반 | 모습 | 처리 |
+|---|---|---|
+| 결과부터 시작 | P1 lead가 수치, 의도 누락 | 의도 단락 신설 |
+| 방법 디테일 나열 | P2가 하이퍼파라미터·시드 나열 | 1줄 요약 + 디테일은 부록 인용 (자기 완결 1줄 우선) |
+| 해석 누락 | P3에서 끝, 해석 단락 부재 | 해석 단락 신설 |
+| 해석이 결과 재진술 | "X는 78%였다. 따라서 X는 78%였다" | "왜" 추가 — 메커니즘 가설 한 줄 |
+| 비약 | 결과 → 해석에서 baseline·통계 유의성 빠짐 | 비교 한정 표현 추가 |
+
+### 영어 4-step 예시
+
+```
+P1 [intent]      We test whether updating prior knowledge from human trajectories closes
+                 the OOD generalization gap.
+P2 [method]      We evaluate on ARC 1k under zero-shot using the same backbone as baseline.
+P3 [result]      Our model reaches 78% zero-shot, +12%p over the strongest baseline.
+P4 [interpret]   The gap aligns with prior-update activation, suggesting the mechanism
+                 partially generalizes OOD structure rather than memorizing.
+```
+
+이 4단 흐름은 **결과/논의 장르일 때만** 적용. 다른 장르(서론·관련 연구·방법)는 기존 5문단 표를 따른다.
+
 ---
 
 ## 장르 4: 리뷰/서베이 (Review / Survey) — 5문단
