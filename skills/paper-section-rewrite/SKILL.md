@@ -1,6 +1,6 @@
 ---
 name: paper-section-rewrite
-description: 학술 논문 한 섹션을 LLM이 자율적으로 4-Level critic loop로 분석·개선하는 윤문 스킬. 설계 순서를 강제 — Level 1 내용 → Level 2 문단 간 구성 → Level 3 문단 내 구성 → Level 4 문장. 각 Level은 CONVERGED 게이트 통과 후에만 다음으로 진행. 두괄식 + 의도(질문)→방법→결과→해석 흐름. paper-digest의 insight-first(단순 나열 X), iterative-academic-writing의 논리적 비약 0, humanize의 자연스러움(em-dash 0, 번역투 0) 게이트 통합. ML 비전공자 가독성 게이트. 한 문장 한 역할(One Sentence One Role) 강제. 섹션·단락 자기 완결성 게이트 (cross-section reference 0). 본문+부록 전체 수식·notation 감사 (중복/혼용/오용 검출). KO/EN 지원. critic은 Claude 본인이 같은 대화 안에서 수행. MANDATORY TRIGGERS - 섹션 다시 쓰기, 섹션 윤문, 풀어쓰기, 두괄식, paper section rewrite, ML-beginner accessibility, notation audit, em-dash 0, 단문, 한 문장 한 역할, insight-first, 자기 완결, self-contained, 논리적 비약
+description: 학술 논문 한 섹션을 LLM이 자율적으로 4-Level critic loop로 분석·개선하는 윤문 스킬. 설계 순서를 강제 — Level 1 내용 → Level 2 문단 간 구성 → Level 3 문단 내 구성 → Level 4 문장. Level 1·2·3는 CONVERGED skip 금지. 두괄식 + 의도(질문)→방법→결과→해석. paper-digest의 insight-first(단순 나열 X), iterative-academic-writing의 논리적 비약 0, humanize의 자연스러움(em-dash 0, 번역투 0). 한 문장 한 역할(One Sentence One Role) + 단문 비율 ≥ 60% 강제. ML 비전공자 가독성 게이트(약어 풀어쓰기 / 수식 전 자연어 / jargon ≤ 3 / 서술형 풀어쓰기 — 명사형 종결 금지). 섹션 자기 완결성. 본문+부록 전체 수식·notation 감사 (중복/혼용/오용/Orphan 검출). KO/EN 지원. MANDATORY TRIGGERS - 섹션 다시 쓰기, 섹션 윤문, 풀어쓰기, 두괄식, paper section rewrite, ML-beginner, notation audit, em-dash 0, 단문, 단문 비율, 한 문장 한 역할, insight-first, 자기 완결, 논리적 비약, 서술형 풀어쓰기, 명사형 종결 금지
 ---
 
 # Paper Section Rewrite v4
@@ -32,7 +32,7 @@ Level 4 [문장]         단문 게이트 + 자연스러움 + 논리적 비약 +
 [Phase 7]   LaTeX 빌드 검증
 ```
 
-각 critic loop는 **최대 3 라운드** 또는 **점수 정체 시** 종료. 정체 시 cosmetic 잔존 표시 후 다음 Level로.
+각 critic loop는 **최대 3 라운드** 또는 **점수 정체 시** 종료. **Level 1·2·3는 CONVERGED 강제** — 구조가 안 잡힌 채로 다음 Level로 내려가지 않는다. 3 라운드 안에 못 잡으면 사용자에게 한 번만 보고 후 재시도하거나 가장 약한 게이트만 cosmetic으로 표시. Level 4는 cosmetic 잔존(예: 자연스러움 패턴 1~2개 잔존) 표시 후 다음 Phase 진행 가능.
 
 ## When to use
 
@@ -252,6 +252,8 @@ S2 [혼합:비교+평가]    ✗ "X는 Y와 달리 Z를 더 잘 처리한다"
 
 길이 가이드: KO 50자 / EN 20 words 이내. 길이만으로 ✗는 아니지만, 길이 + 카테고리 2개 동시 발생 시 우선순위 최상.
 
+**단문 비율 게이트 (Hard)** ★ NEW: 단락 안 단문(KO 50자 / EN 20w 이내) 비율 **≥ 60%** 강제. 미만이면 prose가 무거워지고 ML 비전공자 가독성이 떨어진다. 60% 미만 단락은 substep 자동 fail → 긴 문장을 분할하거나 압축해 비율 통과시킨 뒤 재라벨. 80% 이상은 호평.
+
 하이브리드 라벨 `[정의(+인과)]` **금지** — 무조건 `[혼합:A+B] ✗`로 표기 후 분할.
 
 상세: `writing-principles-ko.md` "단문 원칙 — One Sentence, One Role" 절.
@@ -282,16 +284,36 @@ S2 [혼합:비교+평가]    ✗ "X는 Y와 달리 Z를 더 잘 처리한다"
 
 판정: 단락당 비약 **≥ 1** = ✗. 중간 추론 단계 한 문장 추가 또는 한정 표현으로 약화.
 
-#### Step 4.i.4 — ML-beginner 게이트 ★ NEW
+#### Step 4.i.4 — ML-beginner 게이트 ★
 
-각 단락 **첫 문장**(lead)이 ML 비전공자에게 이해 가능한지 점검:
+각 단락 **첫 문장**(lead)과 단락 본문이 ML 비전공자에게 이해 가능한지 점검. 4개 항목.
 
-1. **약어 first-use 풀어쓰기**: 단락에 처음 등장하는 약어가 풀어쓰기 없이 등장 → ✗ 첨부
+1. **약어 first-use 풀어쓰기**: 단락에 처음 등장하는 약어가 풀어쓰기 없이 등장 → ✗
    - 예: "RLHF는 ..." (첫 등장) → ✗ → "사람 피드백 강화 학습(RLHF)은 ..."
 2. **수식 도입 전 자연어 설명**: 수식이 자연어 설명 없이 갑자기 등장 → ✗
-3. **고밀도 jargon 4개 이상**: 한 문장에 ML jargon 4개↑ (transformer, attention, KV-cache, FlashAttention 등) → ✗ → 분리
+   - 예: 갑자기 `\theta = \arg\min_\theta \mathbb{E}_x [\ell(f_\theta(x))]` → ✗ → "본 모델은 평균 손실을 최소화하는 파라미터를 학습한다. 즉, $\theta = \arg\min \ldots$" 순서
+3. **고밀도 jargon 4개 이상**: 한 문장에 ML jargon 4개↑ (transformer, attention, KV-cache, FlashAttention 등) → ✗ → 두 문장 이상으로 분리
+4. **서술형 풀어쓰기 — 명사형 종결 금지** ★ NEW: **정의된 단어·복잡한 jargon을 명사형으로 끝내지 말고 동사로 풀어 설명**한다. "X는 Y이다 (명사형으로 굳혀 끝)" 대신 "X는 ~을 ~한다 (서술형, 어떻게 작동하는지 풀어쓰기)"로.
 
-판정: lead 위 3개 항목 위반 = ✗. 풀어쓰기 보충 후 재라벨.
+**4번 항목 상세** — 가장 자주 잡히는 안티패턴:
+
+| 패턴 | ✗ 명사형 종결 | ✓ 서술형 풀어쓰기 |
+|---|---|---|
+| 정의 후 명사형으로 굳힘 | "본 방법은 메타인지 표현의 효과적 활용을 통한 일반화 능력 향상이다." | "본 방법은 메타인지 표현을 학습 신호로 쓴다. 이 신호는 분포 밖 입력에서도 일반화를 끌어올린다." |
+| jargon을 jargon으로 정의 | "Self-distillation은 자체 지식 증류 학습이다." | "Self-distillation은 모델이 자기 출력을 정답처럼 다시 학습하는 방식이다." |
+| 명사구 chain | "사전 지식 갱신 메커니즘의 도입을 통한 OOD 일반화 성능의 향상" | "사전 지식 갱신 메커니즘을 도입해 분포 밖 입력에서도 일반화 성능을 끌어올린다." |
+| 추상 명사로 끝맺음 | "본 모듈은 trajectory matching의 구현이다." | "본 모듈은 사람의 풀이 궤적과 모델의 풀이 궤적을 한 단계씩 맞춰 본다." |
+
+**검출 시그널** (한국어):
+- `[가-힣]+의 [가-힣]+의 [가-힣]+` (명사구 3겹 이상)
+- `~을 통한 ~`, `~에 의한 ~`, `~의 ~화/~성/~력`
+- 문장이 "~이다 / ~다" 명사형 종결로 끝나면서 그 명사가 처음 정의된 jargon인 경우
+
+**검출 시그널** (영어):
+- noun phrase chain ≥ 3 (e.g., "the introduction of prior-update mechanism for OOD generalization improvement")
+- nominalization (e.g., "the realization of X by means of Y" → "X realizes Y by ...")
+
+판정: lead와 본문 모두에서 위 4개 항목 점검. 한 항목이라도 위반 ≥ 1 = ✗. 풀어쓰기 보충 후 재라벨.
 
 #### Step 4.i.5 — 정량 grep + 4축 critic
 
@@ -314,9 +336,10 @@ S2 [혼합:비교+평가]    ✗ "X는 Y와 달리 Z를 더 잘 처리한다"
 | 게이트 | 통과 조건 |
 |---|---|
 | 단문 (One Role) | 모든 문장 단일 카테고리 |
+| **단문 비율** ★ | 단락당 단문(KO 50자/EN 20w 이내) 비율 ≥ 60% |
 | 자연스러움 | 단락당 AI tell 패턴 누적 < 3 |
 | 논리적 비약 | 단락당 비약 0 |
-| ML-beginner | lead 3개 항목 통과 |
+| ML-beginner | lead·본문 4개 항목 통과 (약어 풀어쓰기 / 수식 전 자연어 / jargon ≤ 3 / **서술형 풀어쓰기 — 명사형 종결 X**) |
 | 정량 grep | 모든 임계 통과 |
 | 4축 통합 | 9/12 이상 |
 
@@ -567,12 +590,13 @@ xelatex -interaction=nonstopmode main.tex
 
 ## Iteration discipline
 
-- 매 Level CONVERGED 후에만 다음 Level 진행 (skip 금지)
+- **Level 1·2·3는 CONVERGED 강제 — skip 금지.** 구조가 안 잡힌 채로 문장 손대지 않는다.
+- Level 4는 CONVERGED 또는 잔존 cosmetic 표시 후 Phase 5 진행 가능
 - 매 substantive rewrite 뒤 critic 자체 실행
-- WEAK ACCEPT에서 멈추지 않는다. CONVERGED 또는 잔존 cosmetic까지 반복
+- WEAK ACCEPT에서 멈추지 않는다 (Level 1·2·3는 CONVERGED까지)
 - KO/EN 양쪽 paper면 한쪽 수정 후 paragraph-by-paragraph mirror
 - LaTeX 빌드 검증 통과 전 commit 금지
-- 매 commit 후 audit: 4-Level CONVERGED? insight-first? 자기 완결? 수식 혼용 0? **R2 통과? 단락 권장 흐름 일치?**
+- 매 commit 후 audit: 4-Level CONVERGED? insight-first? 단문 비율 ≥ 60%? 서술형 풀어쓰기? 자기 완결? 수식 혼용 0? **R2 통과? 단락 권장 흐름 일치?**
 
 ## 사용자에게 묻지 않는 원칙
 
