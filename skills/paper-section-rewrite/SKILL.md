@@ -1,6 +1,6 @@
 ---
 name: paper-section-rewrite
-description: 학술 논문 한 섹션을 LLM이 자율적으로 4-Level critic loop로 분석·개선하는 윤문 스킬. 설계 순서를 강제 — Level 1 내용 → Level 2 문단 간 구성 → Level 3 문단 내 구성 → Level 4 문장. Level 1·2·3는 CONVERGED skip 금지. 두괄식 + 의도(질문)→방법→결과→해석. paper-digest의 insight-first(단순 나열 X), iterative-academic-writing의 논리적 비약 0, humanize의 자연스러움(em-dash 0, 번역투 0). 한 문장 한 역할(One Sentence One Role) + 단문 비율 ≥ 60% 강제. ML 비전공자 가독성 게이트(약어 풀어쓰기 / 수식 전 자연어 / jargon ≤ 3 / 서술형 풀어쓰기 — 명사형 종결 금지). 섹션 자기 완결성. 본문+부록 전체 수식·notation 감사 (중복/혼용/오용/Orphan 검출). KO/EN 지원. MANDATORY TRIGGERS - 섹션 다시 쓰기, 섹션 윤문, 풀어쓰기, 두괄식, paper section rewrite, ML-beginner, notation audit, em-dash 0, 단문, 단문 비율, 한 문장 한 역할, insight-first, 자기 완결, 논리적 비약, 서술형 풀어쓰기, 명사형 종결 금지
+description: 학술 논문·연구계획서 한 섹션을 LLM이 자율적으로 4-Level critic loop로 분석·개선하는 윤문 스킬. 설계 순서를 강제 — Level 1 내용 → Level 2 문단 간 구성 → Level 3 문단 내 구성 → Level 4 문장. Level 1·2·3는 CONVERGED skip 금지. 두괄식 + 의도(질문)→방법→결과→해석. paper-digest의 insight-first(단순 나열 X), iterative-academic-writing의 논리적 비약 0, humanize의 자연스러움(em-dash 0, 번역투 0, 계사 대용 관용구 "~에 해당한다/~로 기능한다/~에 위치한다/자리매김" 0, 동족어·중복어 stacking 0, "~하고자 한다" 비율 ≤ 30%, register 일관성, 개념어 과반복 회전, 종결어미 다양성). 한 문장 한 역할(One Sentence One Role) + 단문 비율 ≥ 60% 강제. ML 비전공자 가독성 게이트(약어 풀어쓰기 / 수식 전 자연어 / jargon ≤ 3 / 서술형 풀어쓰기 — 명사형 종결 금지). 섹션 자기 완결성. 본문+부록 전체 수식·notation 감사 (중복/혼용/오용/Orphan 검출). KO/EN + 연구계획서 장르 지원. MANDATORY TRIGGERS - 섹션 다시 쓰기, 섹션 윤문, 풀어쓰기, 두괄식, paper section rewrite, 연구계획서 윤문, 자연스럽게, AI 티 빼줘, ML-beginner, notation audit, em-dash 0, 단문, 단문 비율, 한 문장 한 역할, insight-first, 자기 완결, 논리적 비약, 서술형 풀어쓰기, 명사형 종결 금지, 계사 대용, 해당한다 위치한다 기능한다, 동족어 stacking, 하고자 한다 줄이기, register 일관성, 개념어 과반복, 종결어미 다양성
 ---
 
 # Paper Section Rewrite v4
@@ -40,10 +40,12 @@ Level 4 [문장]         단문 게이트 + 자연스러움 + 논리적 비약 +
 - "구조부터 잡고 critic loop로 / 설계 순서대로"
 - "비전공자도 이해할 수 있게 / ML 처음 접하는 사람도"
 - "두괄식으로 / insight 중심으로 / 단순 나열 말고"
-- "논리적 비약 없이 / 자연스럽게 / 번역투 빼줘"
+- "논리적 비약 없이 / 자연스럽게 / 번역투 빼줘 / AI 티 없게"
+- "‘~에 해당한다 / ~로 기능한다’ 같은 표현 자연스럽게 / ‘~하고자 한다’ 좀 줄여줘"
 - "수식 notation 본문·부록 같이 점검"
 - "섹션 자기 완결적으로"
 - 한국어/영어 학술 논문 섹션 윤문
+- 한국어 연구계획서·제안서 한 절 윤문 (필요성 / 선행연구 / 방법 / 활용·기대효과 / 일정 / 예산)
 
 ## When NOT to use
 
@@ -56,10 +58,10 @@ Level 4 [문장]         단문 게이트 + 자연스러움 + 논리적 비약 +
 
 본 스킬은 다음 reference 파일을 critic 시 참조한다 (academic-writing-trainer와 공유).
 
-- `references/writing-principles-ko.md` — 4축, 9 서술 방식, 단락 권장 흐름, 단문 원칙, 자연스러움 원칙, 자기 완결 원칙
-- `references/genre-rubrics.md` — 5장르의 의무 단락 + 결과 섹션 내부 권장 흐름(의도→방법→결과→해석)
-- `references/feedback-corpus.md` — 승필 합평 원문 (R1~R5 few-shot)
-- `references/banned-phrases-ko.md` / `references/banned-phrases-en.md` — 금지어 + grep 패턴
+- `references/writing-principles-ko.md` — 4축, 9 서술 방식, 단락 권장 흐름, 단문 원칙, 자연스러움 원칙, 서술형 풀어쓰기(ML + 비-ML 예시), 개념어 과반복 회전, 종결어미 다양성, 자기 완결 원칙
+- `references/genre-rubrics.md` — 6장르의 의무 단락 (연구계획서 full 포함) + 결과 섹션 내부 권장 흐름(의도→방법→결과→해석)
+- `references/feedback-corpus.md` — 합평 원문 (R1~R5 문단 간 few-shot + R6 문장 단위 자연스러움 few-shot — 연구계획서 worked example)
+- `references/banned-phrases-ko.md` / `references/banned-phrases-en.md` — 금지어 + grep 패턴 (§7 계사 대용, §8 동족어 stacking, §9 register 불일치 포함)
 - `references/scoring-rubrics.md` — 4축 채점표 + Pass/Fail 게이트 + 통과 임계
 
 critic 출력 시 reference의 R 라벨, 카테고리 라벨, 게이트 이름을 그대로 인용한다.
@@ -265,13 +267,18 @@ S2 [혼합:비교+평가]    ✗ "X는 Y와 달리 Z를 더 잘 처리한다"
 | 패턴 | 한국어 시그널 | 영어 시그널 |
 |---|---|---|
 | **번역투 대조구문** | "~에 대한 / ~에 의해 / ~을 통해" | "with respect to / by means of / through which" |
+| **계사 대용 관용구** ★ NEW | "~에 해당한다 / ~에 위치한다 / ~로 기능한다 / ~로 자리매김하다 / ~방향에 있다 / ~핵심에 해당한다 / 입력으로 기능한다" (`banned-phrases-ko.md` §7) | "serves as / functions as / is positioned within / amounts to" 남발 |
+| **동족어·중복어 stacking** ★ NEW | "산출물을 산출 / 연구의 연구 / 다시 재구성 / 가능한 도달 가능한 / 동일한 X3" (`banned-phrases-ko.md` §8) | repeated cognate within a sentence |
 | **기계적 병렬** | "첫째 ~ 둘째 ~ 셋째" 의도 없는 나열 | "first ~ second ~ third" 무의미 나열 |
 | **메타인지 표현 남발** | "~라고 할 수 있다 / ~라고 볼 수 있다 / ~로 사료된다" | "it can be argued that / it is worth noting" |
 | **격식체 과다** | "~함으로써 / ~에 있어 / ~에 다름 아니다" | "vis-à-vis / in light of / inasmuch as" |
 | **명사형 누적** | "~의 ~의 ~의" / "분석을 통한 모색" | nominalization chains |
+| **Register 불일치** ★ NEW | 갑작스런 문어체("아니한다 / 상기 / 전술한") ↔ 갑작스런 구어체("끌려간 / 흔들림 / 넓게 모은다 / 막고 / 가져온다") (`banned-phrases-ko.md` §9) | archaic ("hereinabove") ↔ casual ("grab / a bunch of") 혼재 |
 | **Em-dash 남발** | `—` 사용 ≥ 1 | `—` 사용 ≥ 1 |
 
-판정: 단락당 위 패턴 **누적 ≥ 3** = ✗. 자연스러운 단정문·접속어로 재작성.
+판정: 단락당 위 패턴 **누적 ≥ 3** = ✗. 자연스러운 단정문·접속어로 재작성. (한 문장에 두 패턴이 동시 등장하면 더 명백한 쪽 1개만 카운트 — 이중 카운트 X.)
+
+**리듬 (soft ⚠ only)**: 한 단락의 모든 문장이 같은 종결어미("~한다" 일변도)거나 길이가 모두 비슷하면 ⚠ "종결/리듬 단조" 메모. **단문 비율 ≥ 60% Hard Rule을 절대 못 뒤집는다.** 처리: 긴 문장 한두 개를 짧은 두 문장으로 쪼개거나(단문 비율도 ↑) 한 문장의 종결을 자연스럽게 바꿈. 점수에 반영 X (`writing-principles-ko.md` "종결어미 다양성·문장 리듬" 참조).
 
 #### Step 4.i.3 — 논리적 비약 게이트 ★ NEW
 
@@ -323,12 +330,18 @@ S2 [혼합:비교+평가]    ✗ "X는 Y와 달리 Z를 더 잘 처리한다"
 - `것이다 / 것이며 / 수 있다` 단락당 ≥ 3 → 표현축 -1
 - `에 대한 / 에 의해 / 을 통해` 단락당 ≥ 3 → -1
 - `[가-힣]+적인 / [가-힣]+적으로` ≥ 3 → -1
+- `해당한다 / 위치한다 / 기능한다 / 자리매김 / 방향에 있다` (계사 대용, §7) 섹션당 ≥ 3 → -1
+- `하고자 한다 / 할 것이다 / 하려 한다` 비율 (§5.1): `goja / 평서종결` **> 0.5** → -1, 목표 ≤ 0.3
+- 비표준 개념어(글쓴이가 만든 2자+ 합성어) 한 섹션 ≥ 5회 → 회전 권고, ≥ 8회 → -1 (회전표 = `writing-principles-ko.md`)
+- 동족어 stacking (`산출물을 산출`, `연구의 연구` 등, §8) 문장당 ≥ 1 → ✗ 분할/치환
+- `아니한다 / 상기 / 전술한` (문어체) + `끌려간 / 흔들림 / 넓게 모은다 / 막고` (구어체) 합산 ≥ 2 → register ⚠
 - `됩니다 / 되어진다 / 지게 된다` 0 권장
 - `—` (em-dash) 0 강제
 
 **영어 임계:**
 - `clearly / obviously / various / it is worth noting` 0 권장
 - `moreover / furthermore / additionally` ≥ 2 → -1
+- `serves as / functions as / is positioned within / amounts to` 남발 → -1
 - `—` 0
 
 ### Step 4 — Level 4 critic loop (최대 3 라운드)
@@ -337,27 +350,35 @@ S2 [혼합:비교+평가]    ✗ "X는 Y와 달리 Z를 더 잘 처리한다"
 |---|---|
 | 단문 (One Role) | 모든 문장 단일 카테고리 |
 | **단문 비율** ★ | 단락당 단문(KO 50자/EN 20w 이내) 비율 ≥ 60% |
-| 자연스러움 | 단락당 AI tell 패턴 누적 < 3 |
+| 자연스러움 | 단락당 AI tell 패턴 누적 < 3 (계사 대용·동족어 stacking·register 이탈 포함) |
+| 계사 대용 ★ NEW | "해당한다 / 위치한다 / 기능한다 / 자리매김 / 방향에 있다" 단정문으로 — 단락당 0 (`banned-phrases-ko.md` §7) |
+| 동족어 stacking ★ NEW | "산출물을 산출 / 연구의 연구 / 다시 재구성" 류 문장당 0 (§8) |
+| register 일관성 ★ NEW | 갑작스런 문어체("아니한다")·구어체("끌려간/흔들림") 0 (§9) |
 | 논리적 비약 | 단락당 비약 0 |
 | ML-beginner | lead·본문 4개 항목 통과 (약어 풀어쓰기 / 수식 전 자연어 / jargon ≤ 3 / **서술형 풀어쓰기 — 명사형 종결 X**) |
-| 정량 grep | 모든 임계 통과 |
+| 정량 grep | 모든 임계 통과 (것이다·에 대한·계사 대용·"~하고자 한다" 비율 ≤ 0.3 포함) |
 | 4축 통합 | 9/12 이상 |
 
-모두 통과 = **Level 4 CONVERGED**. 그 단락은 다음 단락으로 진행. 모든 단락 통과 = **Phase 5 진행**.
+모두 통과 = **Level 4 CONVERGED**. 그 단락은 다음 단락으로 진행. 모든 단락 통과 = **Phase 5 진행**. (리듬 단조 ⚠는 cosmetic — Phase 5 진행을 막지 않음.)
 
 #### 단락 substep 출력 형태
 
 ```
 === P_i ([역할]) Level 4 ===
 
-[단문 게이트]      ✓ 모든 문장 단일 카테고리
+[단문 게이트]      ✓ 모든 문장 단일 카테고리 / 단문 비율 67%
 [자연스러움]       ✓ AI tell 1개 ("에 대한" 1회) — 임계(3) 미만
+[계사 대용]        ⚠ S2 "맥락에 위치한다" 1건 → "이 흐름과 연결된다"
+[동족어 stacking]  ✓ 0건
+[register]        ✓ 문어체·구어체 이탈 0
+[리듬]             ⚠ 종결 "~한다" 4연속 — 1문장 변형 권고 (cosmetic)
 [논리적 비약]      ⚠ S3에서 수치→결론 비약 1건 (보완 필요)
 [ML-beginner]     ⚠ S1 lead의 RLHF 약어 풀어쓰기 누락
-[정량 grep]       것이다: 0 / 에 대한: 1 / em-dash: 0  ✓
+[정량 grep]       것이다: 0 / 에 대한: 1 / 해당한다: 0 / 하고자 한다 비율: 0.20 / em-dash: 0  ✓
 [4축]             통일 3 / 연결 3 / 완결 3 / 표현 2 = 11/12
 
 조치:
+- S2 "맥락에 위치한다" → "이 흐름과 연결된다" (계사 대용 §7)
 - S1 lead에 "사람 피드백 강화 학습(RLHF)" first-use 풀어쓰기
 - S3 수치 78% 다음에 baseline 대비·통계 유의성 한 문장 추가
 
@@ -370,7 +391,13 @@ S2 [혼합:비교+평가]    ✗ "X는 Y와 달리 Z를 더 잘 처리한다"
 
 ### Step 5.1 — 섹션 단위 정량 grep
 
-전체 섹션에 대해 banned-phrases regex 카운트.
+전체 섹션에 대해 banned-phrases regex 카운트. 단락 단위(Phase 4)에서 못 잡는 **섹션 전역 패턴**을 여기서 본다:
+
+- **계사 대용 관용구 누적** (`해당한다 / 위치한다 / 기능한다 / 자리매김 / 방향에 있다`, §7) — 섹션 전체 ≥ 3 → ✗ → 단정문으로 재작성
+- **"~하고자 한다" 비율** (§5.1) — `goja / 평서종결 > 0.5` → ✗ → 절반 이상 단정형으로
+- **개념어 과반복 회전** — 글쓴이가 만든 비표준 개념어가 섹션 전체에서 ≥ 5회면 회전 권고, ≥ 8회면 ✗ → `writing-principles-ko.md`의 회전표로 분산. (표준 학술 용어는 반복 OK — 통일이 더 중요)
+- **register 일관성** (§9) — 문어체("아니한다 / 상기 / 전술한")와 구어체("끌려간 / 흔들림 / 넓게 모은다 / 막고") 합산 ≥ 2 → ⚠ → 학술 평서형 한 register로 통일
+- **1차 등장 후 약어화** — "LLM에 의존하지 않는 보조 점검" 첫 등장 → 이후 "LLM 비의존 보조 점검", "한국어 공개 SNS에 나타난 회상" → 이후 "SNS 회상" 식으로 첫 등장만 풀어쓰기
 
 ### Step 5.2 — 자기 완결성 게이트 ★ NEW
 
@@ -408,6 +435,10 @@ S2 [혼합:비교+평가]    ✗ "X는 Y와 달리 Z를 더 잘 처리한다"
 | Hallucination | 본문에 없는 fact·숫자 X |
 | Overclaim | 결론 강도가 증거를 넘지 않는가 |
 | 명사형 누적 | 한 문장에 명사형 ≥ 3 X |
+| 계사 대용 | "해당한다 / 위치한다 / 기능한다 / 자리매김 / 방향에 있다" 섹션당 < 3 |
+| "~하고자 한다" 비율 | 평서종결 대비 ≤ 0.3 (>0.5 ✗) |
+| 개념어 과반복 | 비표준 개념어 섹션당 < 5 (8↑ ✗) — 회전 적용 |
+| Register 일관성 | 문어체+구어체 이탈 합산 < 2 |
 | Em-dash 잔존 | grep으로 `—` count == 0 |
 | 자기 완결성 | 섹션 참조 ≤ 2 |
 | 중복 표현 | 다른 섹션과 동일 표현 X (패러프레이징 적용) |
@@ -543,16 +574,23 @@ xelatex -interaction=nonstopmode main.tex
    Level 3 rounds:    P3 2 rounds, 나머지 1 round → CONVERGED
 
 [Level 4 Summary — 문장]
-   단문 게이트:        ✓ 모든 문장 단일 카테고리
+   단문 게이트:        ✓ 모든 문장 단일 카테고리 / 단문 비율 67%
    자연스러움:         ✓ AI tell 누적 단락당 평균 1.2 (임계 3 미만)
+   계사 대용:          ✓ "해당한다/위치한다/기능한다" 0건 (단정문 재작성 2건)
+   동족어 stacking:    ✓ 0건 ("산출물을 산출" → "구축" 1건)
+   "~하고자 한다" 비율: ✓ 0.18 (≤ 0.3)
+   register 일관성:    ✓ 문어체·구어체 이탈 0
+   리듬:               ⚠ P2 종결 단조 ("~한다" 4연속) — 1문장 변형 권고
    논리적 비약:        ✓ 0건 (보완 후)
    ML-beginner:       ✓ 약어 first-use 풀어쓰기 적용
-   정량 grep:         것이다 1 / 에 대한 2 / 명사형 2 / em-dash 0
+   정량 grep:         것이다 1 / 에 대한 2 / 명사형 2 / 해당한다 0 / em-dash 0
    Level 4 rounds:    1 → CONVERGED
 
 [Phase 5 — 섹션 통합]
    자기 완결성:        ✓ 섹션 참조 1개 (허용 범위)
    섹션 간 중복:       0 (패러프레이징 1건 적용)
+   개념어 과반복:      ✓ 최다 "분석 틀" 4회 (<5) — 회전 불필요
+   register/계사대용:  ✓ 섹션 전역 통과
    4축 종합:          주제 8/9 / 내용 8/9 / 구성 11/12 / 표현 11/12 = 38/42
 
 [Phase 6 — 수식·notation 감사 (본문+부록)]
@@ -596,7 +634,7 @@ xelatex -interaction=nonstopmode main.tex
 - WEAK ACCEPT에서 멈추지 않는다 (Level 1·2·3는 CONVERGED까지)
 - KO/EN 양쪽 paper면 한쪽 수정 후 paragraph-by-paragraph mirror
 - LaTeX 빌드 검증 통과 전 commit 금지
-- 매 commit 후 audit: 4-Level CONVERGED? insight-first? 단문 비율 ≥ 60%? 서술형 풀어쓰기? 자기 완결? 수식 혼용 0? **R2 통과? 단락 권장 흐름 일치?**
+- 매 commit 후 audit: 4-Level CONVERGED? insight-first? 단문 비율 ≥ 60%? 서술형 풀어쓰기? 자기 완결? 수식 혼용 0? **R2 통과? 단락 권장 흐름 일치? 계사 대용 < 3? "~하고자 한다" 비율 ≤ 0.3? 개념어 과반복 < 5? register 일관?**
 
 ## 사용자에게 묻지 않는 원칙
 
