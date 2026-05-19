@@ -33,12 +33,12 @@ description: 처음부터 단계적으로 학술 글을 작성하며 글쓰기 �
 
 본 스킬이 참조하는 reference 파일 (paper-section-rewrite와 공유):
 
-**공유 reference (symlink):**
-- `references/writing-principles-ko.md` — 노션 4축 + 9 서술 방식 + 문단/문장 원칙
-- `references/genre-rubrics.md` — 5장르의 의무 단락
-- `references/feedback-corpus.md` — 승필 합평 원문 (R1~R5 few-shot)
-- `references/banned-phrases-ko.md`, `references/banned-phrases-en.md`
-- `references/scoring-rubrics.md` — 4축 채점표 + 통과 임계
+**공유 reference (symlink) — paper-section-rewrite v4.x와 완전 동일:**
+- `references/writing-principles-ko.md` — 4축 + 9 서술 방식 + 단락 권장 흐름 + 단문 원칙(One Sentence One Role) + 서술형 풀어쓰기(명사형 종결 금지) + 종결어미 다양성 + 자기 완결
+- `references/genre-rubrics.md` — 6장르의 의무 단락 (연구 제안서 / 방법론 / 실험보고 / 리뷰 / 비평 / **연구계획서 8절**) + 결과 섹션 내부 흐름(의도→방법→결과→해석)
+- `references/feedback-corpus.md` — 합평 원문 (R1~R5 문단 간 few-shot + **R6 문장 단위 자연스러움** few-shot)
+- `references/banned-phrases-ko.md`, `references/banned-phrases-en.md` — 금지어 grep (§7 계사 대용 "해당한다/위치한다/기능한다", §8 동족어 stacking, §9 register 불일치 포함)
+- `references/scoring-rubrics.md` — 4축 채점표 + Pass/Fail 게이트 + 통과 임계
 
 **트레이너 전용 reference:**
 - `references/coach-persona.md` — 어조 변환 규칙, 3단 출력 템플릿
@@ -94,9 +94,11 @@ description: 처음부터 단계적으로 학술 글을 작성하며 글쓰기 �
 | 항목 | 옵션 | 디폴트 |
 |---|---|---|
 | **모드** | 단문(5문단) / 장문(섹션 Q&A) | 단문 |
-| **장르** | 연구 제안서 / 방법론 설명 / 실험 보고 / 리뷰 / 비평 / 기타 | 연구 제안서 |
+| **장르** | 연구 제안서(5문단) / 방법론 설명 / 실험 보고 / 리뷰 / 비평 / **연구계획서(8절: 필요성·선행연구·목표·방법·산출물·활용·일정·예산)** / 기타 | 연구 제안서 |
 | **언어** | KO / EN / KO+EN | KO |
 | **통과 임계** | 표준 / 엄격 / 관대 | 표준 |
+
+> **연구계획서(8절)** 선택 시 자동으로 장문 mode로 진입한다 (`genre-rubrics.md` 장르 6 참조). 절마다 stage-flow-long의 Stage 3-B → Stage 4를 재귀 적용.
 
 `genre-rubrics.md`에서 선택된 장르의 의무 단락 목록을 인출해 사용자에게 미리 보여준다.
 
@@ -123,16 +125,22 @@ description: 처음부터 단계적으로 학술 글을 작성하며 글쓰기 �
 상세는 `references/stage-flow-short.md`. 핵심 흐름:
 
 ```
-Stage 1   의도 1문장          통과: 주제 7/9
-Stage 2   내용 1문장          통과: 내용 6/9 + 의도 정합
-Stage 3   5 lead sentences    통과: 구성 9/12 + R1~R5 점검
-Stage 4   문단별 substage 5개  각자 통과: 4축 통합 9/12
+Stage 1   의도 1문장          통과: 주제 7/9 + Insight-first ("what 나열"→"why 명시")
+Stage 2   내용 1문장          통과: 내용 6/9 + R5(의도-내용 정합)
+Stage 3   5 lead sentences    통과: 구성 9/12 + R1~R5 + Insight-first lead
+                              (실험/결과 장르면 의도→방법→결과→해석 흐름 점검)
+Stage 4   문단별 substage 5개  각자 통과: 4축 9/12 + 아래 게이트 전부
+                              · 한 문장 한 역할 (단일 카테고리)
+                              · 단문 비율 ≥ 60% (KO 50자 / EN 20w 이내)
+                              · 자연스러움: 계사 대용(§7)·동족어 stacking(§8)·register(§9)·번역투·em-dash 0
+                              · 논리적 비약 0 (인접 문장 추론 단계 명시)
+                              · ML-beginner: 약어 풀어쓰기 / 수식 전 자연어 / 서술형 풀어쓰기(명사형 종결 금지)
    4.1   배경 단락 prose
    4.2   한계 단락 prose
    4.3   제안 단락 prose
    4.4   차별성 단락 prose
    4.5   평가 단락 prose
-Stage 5   5문단 통합             통과: 전체 10/12
+Stage 5   5문단 통합             통과: 전체 10/12 + "~하고자 한다" 비율 ≤ 0.3 + 개념어 과반복 회전
    학습 리포트 출력
 ```
 
@@ -163,12 +171,12 @@ Stage 5-B   전체 문서 통합
 
 1. **3단 출력 구조** — 매 critic 응답:
    - 잘 된 점 1가지
-   - 개선점 1가지 + 원칙 라벨 (R1~R5 또는 4축 항목)
+   - 개선점 1가지 + 원칙 라벨 (R1~R5 문단 간 / **R6 문장 단위 자연스러움** / Insight-first / 단문·서술형 풀어쓰기 / 4축)
    - 다음 행동 1가지 (통과까지 가장 짧은 길)
 2. **존댓말 + 격려** — "좋습니다 / 거의 다 왔어요 / 한 군데만 더"
 3. **위치 지정 코멘트** — "단락 3의 두 번째 문장이..." (추상적 X)
 
-실제 합평 톤은 `references/feedback-corpus.md`의 승필 hwpx 추출본을 따른다.
+실제 합평 톤은 `references/feedback-corpus.md`를 따른다. **R1~R5는 문단 간 합평, R6은 문장 단위 자연스러움 합평** (연구계획서 worked example — 계사 대용·동족어 stacking·register·"~하고자 한다" 비율 before/after 22건).
 
 ---
 
