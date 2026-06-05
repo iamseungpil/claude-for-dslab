@@ -19,12 +19,14 @@ top-level `skills/`·`agents/`·`commands/`(install.sh 심링크 방식)와 별�
 /plugin marketplace add iamseungpil/claude-for-dslab
 /plugin install dslab-research-suite@dslab
 /plugin install understand-anything@dslab
+/plugin install superpowers@dslab
 ```
 
 | 플러그인 | 설명 |
 |----------|------|
 | `dslab-research-suite` | 논문 검색·서베이·LaTeX·반복 윤문·코드 리뷰 등 학술 연구 툴킷 (이 레포 자체 제작) |
 | `understand-anything` | 코드베이스를 인터랙티브 knowledge graph로 분석·시각화·설명 (architecture / domain / onboarding / diff / dashboard). `/understand`, `/understand-explain`, `/understand-dashboard` 등. ([Lum1104/Understand-Anything](https://github.com/Lum1104/Understand-Anything) v2.7.6, MIT — `plugins/understand-anything/`에 벤더링) |
+| `superpowers` | Claude Code 코어 스킬 라이브러리: TDD, 체계적 디버깅, 브레인스토밍, plan 작성, 병렬 에이전트, git worktree, 코드 리뷰 등 14개 워크플로 스킬. ([obra/superpowers](https://github.com/obra/superpowers) v5.1.0, MIT — `plugins/superpowers/`에 벤더링) |
 
 ## Skills (사용자 호출)
 
@@ -152,7 +154,8 @@ claude-for-dslab/
 └── plugins/                    # /plugin 으로 설치되는 완결형 플러그인
     ├── dslab-research-suite/    # 자체 제작 연구 툴킷 플러그인
     ├── claude-scientific-skills/
-    └── understand-anything/     # 벤더링 (Lum1104, MIT)
+    ├── understand-anything/     # 벤더링 (Lum1104, MIT)
+    └── superpowers/             # 벤더링 (obra/Jesse Vincent, MIT)
 ```
 
 ## 업데이트

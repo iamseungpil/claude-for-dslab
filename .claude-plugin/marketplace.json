@@ -4,8 +4,8 @@
     "name": "Seungpil Lee"
   },
   "metadata": {
-    "description": "DS Lab plugins for academic research, scientific skills, code review, and codebase understanding workflows.",
-    "version": "0.3.0"
+    "description": "DS Lab plugins for academic research, scientific skills, code review, codebase understanding, and core engineering workflows.",
+    "version": "0.4.0"
   },
   "plugins": [
     {
@@ -43,6 +43,27 @@
         "dashboard"
       ],
       "source": "./plugins/understand-anything"
+    },
+    {
+      "name": "superpowers",
+      "description": "Core skills library for Claude Code: TDD, systematic debugging, brainstorming, planning, parallel agents, git worktrees, code review, and proven collaboration workflows.",
+      "version": "5.1.0",
+      "author": {
+        "name": "Jesse Vincent",
+        "email": "jesse@fsck.com"
+      },
+      "homepage": "https://github.com/obra/superpowers",
+      "repository": "https://github.com/obra/superpowers",
+      "license": "MIT",
+      "keywords": [
+        "skills",
+        "tdd",
+        "debugging",
+        "collaboration",
+        "best-practices",
+        "workflows"
+      ],
+      "source": "./plugins/superpowers"
     }
   ]
 }
