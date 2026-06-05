@@ -4,8 +4,8 @@
     "name": "Seungpil Lee"
   },
   "metadata": {
-    "description": "DS Lab plugins for academic research, scientific skills, and code review workflows.",
-    "version": "0.2.1"
+    "description": "DS Lab plugins for academic research, scientific skills, code review, and codebase understanding workflows.",
+    "version": "0.3.0"
   },
   "plugins": [
     {
@@ -24,6 +24,25 @@
         "korean"
       ],
       "source": "./plugins/dslab-research-suite"
+    },
+    {
+      "name": "understand-anything",
+      "description": "AI-powered codebase understanding — analyze, visualize, and explain any project as an interactive knowledge graph (architecture, domain, onboarding, diff, dashboard).",
+      "version": "2.7.6",
+      "author": {
+        "name": "Lum1104"
+      },
+      "homepage": "https://github.com/Lum1104/Understand-Anything",
+      "repository": "https://github.com/Lum1104/Understand-Anything",
+      "license": "MIT",
+      "keywords": [
+        "codebase-analysis",
+        "knowledge-graph",
+        "architecture",
+        "onboarding",
+        "dashboard"
+      ],
+      "source": "./plugins/understand-anything"
     }
   ]
 }

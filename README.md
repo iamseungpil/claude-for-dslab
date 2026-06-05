@@ -11,6 +11,21 @@ chmod +x install.sh
 ./install.sh
 ```
 
+## 마켓플레이스 플러그인 (`/plugin`)
+
+top-level `skills/`·`agents/`·`commands/`(install.sh 심링크 방식)와 별개로, 번들 의존성·hooks·MCP가 필요한 도구는 `plugins/` 아래 완결형 플러그인으로 담고 `.claude-plugin/marketplace.json`(마켓플레이스명 `dslab`)에 등록한다. Claude Code에서 다음처럼 설치한다.
+
+```text
+/plugin marketplace add iamseungpil/claude-for-dslab
+/plugin install dslab-research-suite@dslab
+/plugin install understand-anything@dslab
+```
+
+| 플러그인 | 설명 |
+|----------|------|
+| `dslab-research-suite` | 논문 검색·서베이·LaTeX·반복 윤문·코드 리뷰 등 학술 연구 툴킷 (이 레포 자체 제작) |
+| `understand-anything` | 코드베이스를 인터랙티브 knowledge graph로 분석·시각화·설명 (architecture / domain / onboarding / diff / dashboard). `/understand`, `/understand-explain`, `/understand-dashboard` 등. ([Lum1104/Understand-Anything](https://github.com/Lum1104/Understand-Anything) v2.7.6, MIT — `plugins/understand-anything/`에 벤더링) |
+
 ## Skills (사용자 호출)
 
 `/skill-name` 형태로 직접 호출하거나, Claude가 상황에 맞게 자동으로 사용합니다.
@@ -119,19 +134,25 @@ claude-for-dslab/
 │   ├── paper-digest/
 │   ├── survey-paper/
 │   └── update-study/
-└── agents/
-    ├── academic-writing-assistant.md
-    ├── academic-planner.md
-    ├── academic-reviewer.md
-    ├── code-reviewer.md
-    ├── debugger.md
-    ├── code-cleanup-optimizer.md
-    ├── modular-code-architect.md
-    ├── task-planner-analyzer.md
-    ├── report-planner.md
-    ├── report-reviewer.md
-    ├── experiment-interpreter.md
-    └── experiment-verifier.md
+├── agents/
+│   ├── academic-writing-assistant.md
+│   ├── academic-planner.md
+│   ├── academic-reviewer.md
+│   ├── code-reviewer.md
+│   ├── debugger.md
+│   ├── code-cleanup-optimizer.md
+│   ├── modular-code-architect.md
+│   ├── task-planner-analyzer.md
+│   ├── report-planner.md
+│   ├── report-reviewer.md
+│   ├── experiment-interpreter.md
+│   └── experiment-verifier.md
+├── .claude-plugin/
+│   └── marketplace.json        # 마켓플레이스 `dslab` 매니페스트
+└── plugins/                    # /plugin 으로 설치되는 완결형 플러그인
+    ├── dslab-research-suite/    # 자체 제작 연구 툴킷 플러그인
+    ├── claude-scientific-skills/
+    └── understand-anything/     # 벤더링 (Lum1104, MIT)
 ```
 
 ## 업데이트
