@@ -1,35 +1,102 @@
 ---
 name: autoresearch:fix
-description: Use when user types /autoresearch:fix or asks to repair errors iteratively until zero remain. Autonomous fix loop — one fix per iteration, atomic, auto-reverted on failure.
-argument-hint: "[--target <cmd>] [--guard <cmd>] [--scope <glob>] [--category <type>] [--skip-lint] [--from-debug] [--chain <targets>] [--iterations N]"
-allowed-tools: Bash, Read, Write, Edit, Glob, Grep, Agent, WebSearch, WebFetch
+description: "Crush errors one-by-one until zero remain: tests, types, lint, build"
+argument-hint: "[Target: <cmd>] [Scope: <glob>] [Guard: <cmd>] [Iterations: N] [--evals] [--from-debug]"
 ---
 
-EXECUTE IMMEDIATELY — do not deliberate, do not ask clarifying questions before reading the protocol.
+EXECUTE IMMEDIATELY.
 
-## Argument Parsing (do this FIRST)
+## Parse Arguments
 
-Extract these from $ARGUMENTS — the user may provide extensive context alongside flags. Ignore prose and extract ONLY flags/config:
+Extract from $ARGUMENTS:
+- `Target:` or `--target` — command that shows errors (e.g., `npm test`, `tsc --noEmit`)
+- `Scope:` or `--scope` — file globs to modify
+- `Guard:` or `--guard` — safety command (must always pass)
+- `Iterations:` or `--iterations` — default 20. "unlimited" for unbounded.
+- `--from-debug` — read handoff.json from previous debug run
+- `--category` — filter: test, type, lint, build
+- `--evals`, `--evals-interval N`, `--chain`
 
-- `--target <cmd>` or `Target:` — explicit verify command
-- `--guard <cmd>` or `Guard:` — safety command that must always pass
-- `--scope <glob>` or `Scope:` — file globs to fix
-- `--category <type>` — only fix: test, type, lint, or build
-- `--skip-lint` — skip lint fixes, focus on tests/types/build only
-- `--from-debug` — read findings from latest debug session
-- `--chain <targets>` or `Chain:` — comma-separated downstream commands (debug, security, scenario, predict, plan, learn, reason, ship, probe). Spaces after commas are tolerated.
-- `Iterations:` or `--iterations N` — integer for bounded mode (CRITICAL: run exactly N iterations then stop)
+## Setup (if required context missing)
 
-If `Iterations: N` or `--iterations N` is found, set `max_iterations = N`. Track `current_iteration` starting at 0. After iteration N, print final summary and STOP. Also stops when error count = 0.
+If Target and Scope both missing:
+1. Auto-detect failures: run test suite, type checker, linter, build
+2. Present results via AskUserQuestion (single batched call):
+   Q1 (Fix What): "Found [N] test failures, [M] type errors, [K] lint errors. Fix what?" — everything, only tests, only types, only lint
+   Q2 (Guard): "Safety command that must always pass?" — npm test, tsc, npm run build, skip
+   Q3 (Scope): "Which files can I modify?" — suggested globs from error locations + all
+   Q4 (Launch): "Ready?" — fix until zero, fix with limit, cancel
+If all provided → skip setup.
+If --from-debug → read handoff.json for scope and findings.
 
-All remaining text in $ARGUMENTS is additional context — use it to understand the problem but do not treat it as flags.
+## Precondition Checks
 
-## Execution
+Verify: git repo exists, clean working tree, no lock files, no detached HEAD. Fail fast on critical issues.
 
-1. Read the fix workflow: `.claude/skills/autoresearch/references/fix-workflow.md`
-2. If target and scope are missing — use `AskUserQuestion` with batched questions per fix-workflow.md
-3. Execute the 8-phase fix loop: ONE fix per iteration, never suppress errors, auto-revert on regression
-4. If bounded: after each iteration, check `current_iteration < max_iterations`. If not, STOP and print summary.
-5. If `--chain` is set, hand off to each chained command sequentially per fix-workflow.md Chain Conversion section.
+## Establish Baseline (Iteration 0)
 
-Stream all output live — never run in background.
+1. Run Target command → count errors (metric = error count, direction = lower_is_better)
+2. Record baseline in TSV
+3. Create output directory: `autoresearch/fix-{YYMMDD}-{HHMM}/`
+4. TSV header: `# metric_direction: lower_is_better\niteration\ttimestamp\terror_type\terror_fixed\tcommit\tmetric\tdelta\tguard\tstatus\tdescription`
+
+## Iteration Loop (until zero errors or max_iterations)
+
+### Phase 1: Review
+- Read results TSV + git log
+- Run Target to get current error list
+- If error count == 0 → exit loop (SUCCESS)
+
+### Phase 2: Prioritize
+Order: crash/fatal → test failures → type errors → lint → warnings.
+Within category: easiest first (single-file fixes before cross-file).
+
+### Phase 3: Fix ONE Thing
+- Pick the highest-priority error
+- Make ONE focused fix (atomic — addresses exactly one error)
+- Record error type and which error was fixed
+
+### Phase 4: Commit
+- Stage and commit: `experiment: fix {error_type} — {description}`
+
+### Phase 5: Verify
+- Run Target → count errors → compute delta
+- Expected: error count decreased by 1 or more
+
+### Phase 6: Guard
+- If Guard set → run Guard. If fails → revert.
+
+### Phase 7: Decide
+- **keep** — error count decreased AND guard passes
+- **keep (reworked)** — fix needed adjustment, second attempt worked
+- **discard** — error count same/increased → `git revert HEAD --no-edit`
+- **crash** — target/guard command failed → revert
+- **hook-blocked** — git hook blocked the commit
+- **metric-error** — target output not parseable → revert
+
+### Phase 8: Log
+Append row: iteration, timestamp, error_type, error_fixed, commit/-, metric (error count), delta, guard, status, description
+
+### Eval Checkpoint
+If --evals: check if current_iteration % interval == 0 → run checkpoint analysis.
+
+### Bounded Check
+If bounded: current_iteration >= max_iterations → exit loop, print summary.
+
+## Summary
+
+Print: total errors fixed, remaining errors, error types distribution, fix success rate.
+
+## Eval Checkpoint (--evals flag)
+
+If --evals present:
+- Compute interval: floor(max_iterations / 3), min 1. Fixed 10 if unbounded. Override: --evals-interval N.
+- Every {interval} iterations, pause and analyze current results TSV.
+- Print: `--- Eval Checkpoint (iterations {X}-{Y}) ---\nErrors: {start} → {end} ({delta}) | Kept: {n}/{total} | Trend: {up/flat/down}\n{one-line recommendation}\n---`
+- If plateau 3+ checkpoints → recommend early stop.
+- At loop end → full evals summary to evals-summary.md in output directory.
+
+## Chain Handoff
+
+After completion, write handoff.json to output directory: version "2.1.0", source "fix", timestamp, status (COMPLETE|USER_INTERRUPT|BOUNDED|ERROR), results_tsv path, findings = unfixed errors, config{target, scope, guard}.
+Invoke next target in --chain order. Propagate --evals flag.

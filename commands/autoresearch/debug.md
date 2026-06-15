@@ -1,34 +1,97 @@
 ---
 name: autoresearch:debug
-description: Use when user types /autoresearch:debug or asks to hunt bugs / find root cause iteratively. Autonomous bug-hunting loop — scientific method + autoresearch iteration. Finds ALL bugs, not just one.
-argument-hint: "[--fix] [--scope <glob>] [--symptom <text>] [--severity <level>] [--technique <name>] [--chain <targets>] [--iterations N]"
-allowed-tools: Bash, Read, Write, Edit, Glob, Grep, Agent, WebSearch, WebFetch
+description: "Hunt bugs with scientific method: hypothesize, test, falsify, repeat"
+argument-hint: "[Scope: <glob>] [Symptom: <text>] [Iterations: N] [--fix] [--evals]"
 ---
 
-EXECUTE IMMEDIATELY — do not deliberate, do not ask clarifying questions before reading the protocol.
+EXECUTE IMMEDIATELY.
 
-## Argument Parsing (do this FIRST)
+## Parse Arguments
 
-Extract these from $ARGUMENTS — the user may provide extensive context alongside flags. Ignore prose and extract ONLY flags/config:
+Extract from $ARGUMENTS:
+- `Scope:` or `--scope` — file globs to investigate
+- `Symptom:` or `--symptom` — error message or behavior description
+- `Iterations:` or `--iterations` — default 15. "unlimited" for unbounded.
+- `--fix` — shorthand for `--chain fix`
+- `--severity` — filter: critical, high, medium, low
+- `--technique` — force specific technique
+- `--evals`, `--evals-interval N`, `--chain`
 
-- `--fix` — if present, auto-switch to /autoresearch:fix after finding bugs
-- `--scope <glob>` or `Scope:` — file globs to investigate
-- `--symptom "<text>"` or `Symptom:` — description of what's broken
-- `--severity <level>` — minimum severity to report (critical/high/medium/low)
-- `--technique <name>` — force a specific investigation technique (binary-search, differential, minimal-reproduction, trace, pattern-search, working-backwards, rubber-duck)
-- `--chain <targets>` or `Chain:` — comma-separated downstream commands (fix, security, scenario, predict, plan, learn, reason, ship, probe). Spaces after commas are tolerated.
-- `Iterations:` or `--iterations N` — integer for bounded mode (CRITICAL: run exactly N iterations then stop)
+## Setup (if required context missing)
 
-If `Iterations: N` or `--iterations N` is found, set `max_iterations = N`. Track `current_iteration` starting at 0. After iteration N, print final summary and STOP.
+If Scope and Symptom both missing:
+1. Auto-scan: run tests, lint, typecheck to detect existing failures
+2. AskUserQuestion (single batch):
+   Q1 (Issue): "What's the problem?" — hunt all bugs, specific error, failing tests, CI failure, performance
+   Q2 (Scope): "Which files?" — suggested globs + entire codebase
+   Q3 (Depth): "How deep?" — quick (5), standard (15), deep (30+), unlimited
+   Q4 (After): "When bugs found?" — report only, find and fix (--chain fix), chain to other, ask each time
+If all provided → skip.
 
-All remaining text in $ARGUMENTS is additional context — use it to understand the problem but do not treat it as flags.
+## Investigation Techniques
 
-## Execution
+| Technique | When to Use |
+|---|---|
+| Binary search | Know when it worked, find when it broke |
+| Differential | Compare working vs broken state |
+| Minimal reproduction | Simplify to smallest failing case |
+| Trace | Follow execution path through code |
+| Pattern search | Grep for known anti-patterns |
+| Working backwards | Start from error, trace to root cause |
 
-1. Read the debug workflow: `.claude/skills/autoresearch/references/debug-workflow.md`
-2. If scope or symptom is missing — use `AskUserQuestion` with batched questions per debug-workflow.md
-3. Execute the 7-phase debug loop
-4. If bounded: after each iteration, check `current_iteration < max_iterations`. If not, STOP and print summary.
-5. If `--chain` is set, hand off to each chained command sequentially per debug-workflow.md Chain Conversion section. `--fix` is equivalent to `--chain fix`.
+## Establish Baseline (before loop)
 
-Stream all output live — never run in background.
+1. Auto-scan for failures if no symptom provided
+2. Create output directory: `autoresearch/debug-{YYMMDD}-{HHMM}/`
+3. TSV header: `# metric_direction: higher_is_better\niteration\ttimestamp\thypothesis\tstatus\ttechnique\tevidence\tfile_line`
+4. Metric = cumulative confirmed findings count
+
+## Iteration Loop
+
+### Phase 1: Review Context
+- Read results TSV (past findings)
+- Assess: what's been tested, what vectors remain
+- If no hypotheses left → early stop
+
+### Phase 2: Hypothesize
+- Form ONE specific, falsifiable hypothesis
+- Format: "I hypothesize that {X} because {evidence}. Test by {Y}."
+- Hypothesis must be testable and different from all previous
+
+### Phase 3: Investigate
+- Apply appropriate technique for this hypothesis
+- Read relevant code, run targeted tests, check logs
+- Collect evidence (file:line references required)
+
+### Phase 4: Classify
+- **confirmed** — hypothesis correct, bug found with evidence
+- **disproven** — hypothesis wrong, evidence against it
+- **inconclusive** — can't prove or disprove, needs different approach
+
+### Phase 5: Log
+Append to TSV: iteration, timestamp, hypothesis, status, technique, evidence, file_line
+
+### Eval Checkpoint
+If --evals: check if current_iteration % interval == 0 → run checkpoint analysis.
+
+### Bounded Check
+If bounded: current_iteration >= max_iterations → exit loop, print summary.
+
+## Summary
+
+Print: total hypotheses tested, confirmed/disproven/inconclusive counts, all confirmed bugs with severity and file:line.
+
+## Eval Checkpoint (--evals flag)
+
+If --evals present:
+- Compute interval: floor(max_iterations / 3), min 1. Fixed 10 if unbounded. Override: --evals-interval N.
+- Every {interval} iterations, pause and analyze current results TSV.
+- Print: `--- Eval Checkpoint (iterations {X}-{Y}) ---\nFindings: {confirmed} confirmed | Trend: {up/flat/down}\n{one-line recommendation}\n---`
+- If plateau 3+ checkpoints (no new confirmed) → recommend early stop.
+- At loop end → full evals summary to evals-summary.md in output directory.
+
+## Chain Handoff
+
+After completion, write handoff.json to output directory: version "2.1.0", source "debug", timestamp, status (COMPLETE|USER_INTERRUPT|BOUNDED|ERROR), results_tsv path, findings = confirmed bugs with severity + file:line, config{scope, symptom}.
+If --fix flag → chain to fix automatically.
+Invoke next target in --chain order. Propagate --evals flag.

@@ -1,37 +1,98 @@
 ---
 name: autoresearch:learn
-description: Use when user types /autoresearch:learn or asks to document/learn the codebase. Autonomous codebase documentation engine — scout, learn, generate/update docs with validation-fix loop.
-argument-hint: "[goal/focus] [--mode init|update|check|summarize] [--scope <glob>] [--depth quick|standard|deep] [--file <name>] [--scan] [--topics <list>] [--no-fix] [--format markdown|html|json|rst] [--chain <targets>] [--iterations N]"
-allowed-tools: Bash, Read, Write, Edit, Glob, Grep, Agent, WebSearch, WebFetch
+description: "Scout codebase and auto-generate docs with validation-fix loop"
+argument-hint: "[Mode: <init|update|check|summarize>] [Scope: <glob>] [Iterations: N] [--depth <level>] [--evals]"
 ---
 
-EXECUTE IMMEDIATELY — do not deliberate, do not ask clarifying questions before reading the protocol.
+EXECUTE IMMEDIATELY.
 
-## Argument Parsing (do this FIRST)
+## Parse Arguments
 
-Extract these from $ARGUMENTS — the user may provide extensive context alongside flags. Ignore prose and extract ONLY flags/config:
+Extract from $ARGUMENTS:
+- `Mode:` or `--mode` — init (create from scratch), update (refresh existing), check (validate), summarize (brief overview)
+- `Scope:` or `--scope` — file globs to document
+- `Depth:` or `--depth` — overview, standard, comprehensive
+- `--file <path>` — specific file to document
+- `--scan` — force fresh codebase scout
+- `--topics` — comma-separated focus topics
+- `--no-fix` — validate only, don't auto-fix issues
+- `--format` — markdown (default), json, rst
+- `Iterations:` or `--iterations` — default 10. "unlimited" for unbounded.
+- `--evals`, `--evals-interval N`, `--chain`, `--<subcommand>`
 
-- `--mode <mode>` or `Mode:` — init, update, check, summarize
-- `--scope <glob>` or `Scope:` — limit codebase learning to specific dirs
-- `--depth <level>` or `Depth:` — quick, standard, deep
-- `--file <name>` — selective update targeting one doc file
-- `--scan` — force fresh scout in summarize mode
-- `--topics <list>` — focus summarize on specific topics
-- `--no-fix` — skip validation-fix loop
-- `--format <fmt>` — output format: markdown (default), html, json, rst
-- `--chain <targets>` or `Chain:` — comma-separated downstream commands (debug, fix, security, scenario, predict, plan, reason, ship, probe). Spaces after commas are tolerated.
-- `Iterations:` or `--iterations N` — integer for bounded mode (CRITICAL: run exactly N iterations then stop)
+## Setup (if Mode or Scope missing)
 
-If `Iterations: N` or `--iterations N` is found, set `max_iterations = N`. Track `current_iteration` starting at 0. After iteration N, print final summary and STOP.
+AskUserQuestion (single batch):
+  Q1 (Mode): "What to do?" — init (generate docs), update (refresh), check (validate), summarize (overview)
+  Q2 (Scope): "Which files?" — suggested globs + entire codebase
+  Q3 (Depth): "How detailed?" — overview only, standard, comprehensive
+  Q4 (Topics): "Focus on?" — architecture, API, database, testing, all
+If all provided → skip.
 
-All remaining text in $ARGUMENTS is additional context — use it to understand the problem but do not treat it as flags.
+## Establish Baseline
 
-## Execution
+1. Scout codebase: file tree, imports/exports, existing docs
+2. Identify documentation gaps (undocumented files, outdated docs, missing READMEs)
+3. Create output directory: `autoresearch/learn-{YYMMDD}-{HHMM}/`
+4. TSV header: `# metric_direction: higher_is_better\niteration\ttimestamp\tfile_documented\tvalidation_status\tissues_found\tissues_fixed\tdescription`
+5. Metric = files with valid documentation (higher is better)
 
-1. Read the learn workflow: `.claude/skills/autoresearch/references/learn-workflow.md`
-2. If scope or goal is missing — use `AskUserQuestion` with batched questions per learn-workflow.md
-3. Execute the learn workflow
-4. If bounded: after each iteration, check `current_iteration < max_iterations`. If not, STOP and print summary.
-5. If `--chain` is set, hand off to each chained command sequentially per learn-workflow.md Chain Conversion section.
+## Summarize Mode (no loop)
 
-Stream all output live — never run in background.
+If mode == summarize:
+- One-shot: scan codebase → produce structured summary
+- Write summary.md to output directory
+- Skip iteration loop entirely
+
+## Iteration Loop (init/update/check modes)
+
+### Phase 1: Scout
+- Scan for documentation gaps
+- Prioritize: no docs → outdated docs → incomplete docs
+- If no gaps remain → early stop (SUCCESS)
+
+### Phase 2: Generate/Update
+- Pick highest-priority gap
+- Write or update documentation for ONE file/module
+- Follow project conventions for doc format and location
+
+### Phase 3: Validate
+- Check generated docs against code: descriptions accurate? Examples valid? Links work?
+- Run doc linters if available
+- Record: validation_status (pass/fail), issues found
+
+### Phase 4: Fix (unless --no-fix)
+- If validation finds issues → fix the doc
+- Commit clean doc: `docs: document {file/module}`
+
+### Phase 5: Log
+Append to TSV: iteration, timestamp, file_documented, validation_status, issues_found, issues_fixed, description
+
+### Eval Checkpoint
+If --evals: check if current_iteration % interval == 0 → run checkpoint.
+
+### Bounded Check
+If bounded: current_iteration >= max_iterations → exit loop.
+
+## Output
+
+- `learn-results.tsv`
+- `summary.md` — documentation overview
+- `validation-report.md` — issues found/fixed
+
+## Summary
+
+Print: files documented, validation pass rate, issues found/fixed, remaining gaps.
+
+## Eval Checkpoint (--evals flag)
+
+If --evals present:
+- Compute interval: floor(max_iterations / 3), min 1. Fixed 10 if unbounded.
+- Print: `--- Eval Checkpoint (iterations {X}-{Y}) ---\nDocs written: {n} | Validation: {pass}/{total} | Gaps remaining: {m}\n{recommendation}\n---`
+- If 3+ checkpoints with no new docs → recommend early stop.
+- At loop end → full evals summary to evals-summary.md.
+
+## Chain Handoff
+
+After completion, write handoff.json: version "2.1.0", source "learn", timestamp, status, results_tsv path, findings = documentation gaps remaining, config{mode, scope, depth}.
+Invoke next target in --chain order. Propagate --evals flag.

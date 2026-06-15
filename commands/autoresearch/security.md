@@ -1,35 +1,101 @@
 ---
 name: autoresearch:security
-description: Use when user types /autoresearch:security or asks for STRIDE / OWASP / red-team audit. Autonomous security audit — STRIDE threat model + OWASP Top 10 + red-team with 4 adversarial personas.
-argument-hint: "[--diff] [--fix] [--fail-on <severity>] [--scope <glob>] [--depth <level>] [--chain <targets>] [--iterations N]"
-allowed-tools: Bash, Read, Write, Edit, Glob, Grep, Agent, WebSearch, WebFetch
+description: "STRIDE + OWASP security audit with red-team adversarial personas"
+argument-hint: "[Scope: <glob>] [Focus: <area>] [Iterations: N] [--diff] [--fix] [--fail-on <severity>] [--evals]"
 ---
 
-EXECUTE IMMEDIATELY — do not deliberate, do not ask clarifying questions before reading the protocol.
+EXECUTE IMMEDIATELY.
 
-## Argument Parsing (do this FIRST)
+## Parse Arguments
 
-Extract these from $ARGUMENTS — the user may provide extensive context alongside flags. Ignore prose and extract ONLY flags/config:
+Extract from $ARGUMENTS:
+- `Scope:` or `--scope` — file globs to audit
+- `Focus:` — specific area (auth, API, data handling, etc.)
+- `Depth:` or `--depth` — quick (5 iterations), standard (15), deep (30+)
+- `Iterations:` or `--iterations` — default 15. "unlimited" for unbounded.
+- `--diff` — delta mode: only audit files changed since last audit
+- `--fix` — after audit, auto-fix Critical/High findings (chains to fix)
+- `--fail-on <severity>` — exit non-zero if findings at/above threshold (CI gate)
+- `--evals`, `--evals-interval N`, `--chain`, `--<subcommand>`
 
-- `--diff` — only audit files changed since last audit
-- `--fix` — auto-fix confirmed Critical/High findings
-- `--fail-on <severity>` — exit non-zero for CI/CD gating (critical/high/medium)
-- `--scope <glob>` or `Scope:` — file globs to audit
-- `--depth <level>` or `Depth:` — shallow (5 iterations), standard (15), deep (30+)
-- `Focus:` — specific area to focus on (e.g., "authentication and authorization")
-- `--chain <targets>` or `Chain:` — comma-separated downstream commands (debug, fix, scenario, predict, plan, learn, reason, ship, probe). Spaces after commas are tolerated. `--fix` is equivalent to `--chain fix`.
-- `Iterations:` or `--iterations N` — integer for bounded mode (CRITICAL: run exactly N iterations then stop)
+## Setup (if required context missing)
 
-If `Iterations: N` or `--iterations N` is found, set `max_iterations = N`. Track `current_iteration` starting at 0. After iteration N, print final summary and STOP.
+If Scope missing and no --diff:
+1. Scan codebase for tech stack, frameworks, API routes
+2. AskUserQuestion (single batch):
+   Q1 (Scope): "What to audit?" — entire codebase, API + middleware, auth, external-facing
+   Q2 (Depth): "How thorough?" — quick (5), standard (15), deep (30+), unlimited
+   Q3 (Action): "What to do with findings?" — report only, report + auto-fix, report + CI gate
+If all provided → skip.
 
-All remaining text in $ARGUMENTS is additional context — use it to understand scope but do not treat it as flags.
+## Setup Phase (once, before loop)
 
-## Execution
+1. **Reconnaissance** — scan: package.json/requirements.txt (deps), .env.example (secrets), Dockerfile (infra), API route files (attack surface), auth/middleware (trust boundaries), DB schemas (data assets), CI/CD configs (supply chain)
+2. **Asset Identification** — catalog data stores, auth systems, external services, user inputs
+3. **Trust Boundary Mapping** — browser↔server, public↔authenticated, user↔admin, CI↔prod
+4. **STRIDE Threat Model** — generate threats per category. Load `references/security-checklist.md` for checklist.
+5. **Attack Surface Map** — entry points, data flows, abuse paths
+6. **Baseline** — count known issues, initialize coverage tracking
 
-1. Read the security workflow: `.claude/skills/autoresearch/references/security-workflow.md`
-2. If scope is missing — use `AskUserQuestion` with batched questions per security-workflow.md
-3. Execute the 7-step security audit
-4. If bounded: after each iteration, check `current_iteration < max_iterations`. If not, STOP and print summary.
-5. If `--chain` is set, hand off to each chained command sequentially per security-workflow.md Chain Conversion section.
+Create output directory: `autoresearch/security-{YYMMDD}-{HHMM}/`
+Write: overview.md, threat-model.md, attack-surface-map.md
+TSV header: `# metric_direction: higher_is_better\niteration\ttimestamp\tfinding\tseverity\towasp\tstride\tevidence\tfile_line`
 
-Stream all output live — never run in background.
+## Iteration Loop
+
+### Phase 1: Review
+- Read results TSV + coverage tracking
+- Identify untested attack vectors from threat model
+- Prioritize: untested OWASP categories → untested STRIDE → depth on existing
+
+### Phase 2: Attack
+- Adopt red-team persona for this vector (rotate: Security Adversary, Supply Chain, Insider Threat, Infra Attacker)
+- Deep-dive into relevant code with adversarial mindset
+- Look for: code paths, input handling, auth checks, data flows
+
+### Phase 3: Validate
+- Construct proof: file:line + specific attack scenario
+- Every finding MUST have code evidence — no theoretical fluff
+- Classify severity: Critical/High/Medium/Low/Info
+- Map to OWASP (A01-A10) and STRIDE (S/T/R/I/D/E)
+
+### Phase 4: Log
+- Append finding to TSV
+- Update coverage tracking
+- Print coverage every 5 iterations:
+  `OWASP: [A01✓ A02✓ A03✗ ...] X/10 | STRIDE: [S✓ T✓ R✗ ...] Y/6 | Score: Z`
+
+### Composite Metric
+`score = (owasp_tested/10)*50 + (stride_tested/6)*30 + min(findings, 20)`
+
+### Eval Checkpoint
+If --evals: check if current_iteration % interval == 0 → run checkpoint.
+
+### Bounded Check
+If bounded: current_iteration >= max_iterations → exit loop.
+
+## After Loop
+
+1. Write `findings.md` (severity-ranked)
+2. Write `owasp-coverage.md`
+3. Write `recommendations.md`
+4. If `--fix` → chain to fix with Critical/High findings
+5. If `--fail-on` → check findings against threshold, exit non-zero if exceeded
+
+## Summary
+
+Print: total findings by severity, OWASP coverage X/10, STRIDE coverage Y/6, composite score.
+
+## Eval Checkpoint (--evals flag)
+
+If --evals present:
+- Compute interval: floor(max_iterations / 3), min 1. Fixed 10 if unbounded. Override: --evals-interval N.
+- Every {interval} iterations, analyze results TSV.
+- Print: `--- Eval Checkpoint (iterations {X}-{Y}) ---\nScore: {start} → {end} | New findings: {n} | Coverage: OWASP {x}/10, STRIDE {y}/6\n{recommendation}\n---`
+- If no new findings 3+ checkpoints → recommend early stop.
+- At loop end → full evals summary to evals-summary.md.
+
+## Chain Handoff
+
+After completion, write handoff.json to output directory: version "2.1.0", source "security", timestamp, status (COMPLETE|USER_INTERRUPT|BOUNDED|ERROR), results_tsv path, findings = all findings with severity + OWASP + STRIDE + file:line, config{scope, focus, depth}.
+Invoke next target in --chain order. Propagate --evals flag.

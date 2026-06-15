@@ -1,36 +1,109 @@
 ---
 name: autoresearch:reason
-description: Use when user types /autoresearch:reason or asks for adversarial generate-critique-synthesize refinement. Isolated multi-agent adversarial refinement — generate, critique, synthesize, and judge outputs through repeated rounds until convergence. Produces a lineage of evolving candidates with documented decision rationale.
-argument-hint: "[task/question] [--domain <domain>] [--mode convergent|creative|debate] [--judges N] [--iterations N] [--convergence N] [--chain debug|plan|fix|scenario|predict|ship|learn]"
-allowed-tools: Bash, Read, Write, Edit, Glob, Grep, Agent, WebSearch, WebFetch
+description: "Adversarial debate with blind judges until convergence"
+argument-hint: "[Task: <question>] [Domain: <type>] [--mode convergent|creative|debate] [--judges N] [Iterations: N] [--evals]"
 ---
 
-EXECUTE IMMEDIATELY — do not deliberate, do not ask clarifying questions before reading the protocol.
+EXECUTE IMMEDIATELY.
 
-## Argument Parsing (do this FIRST)
+## Parse Arguments
 
-Extract these from $ARGUMENTS — the user may provide extensive context alongside flags. Ignore prose and extract ONLY flags/config:
+Extract from $ARGUMENTS:
+- `Task:` — question, proposal, design, argument, or claim to refine
+- `Domain:` or `--domain` — software, product, business, security, research, content
+- `Mode:` or `--mode` — convergent (default), creative, debate
+- `--judges N` or `Judges:` — blind judge count (3 default, 5 thorough, 7 deep)
+- `--convergence N` or `Convergence:` — stop when incumbent wins N consecutive rounds (default 3)
+- `Iterations:` or `--iterations` — default 8. "unlimited" for unbounded.
+- `--judge-personas` — custom judge persona overrides
+- `--no-synthesis` — skip synthesis, pure debate only
+- `--temperature` — generation temperature hint
+- `--evals`, `--evals-interval N`, `--chain`, `--<subcommand>`
 
-- `--domain <domain>` or `Domain:` — subject domain (software, product, security, research, content, etc.)
-- `--mode <mode>` or `Mode:` — convergent (default), creative, debate
-- `--judges N` or `Judges:` — number of blind judges (3 default, 5 thorough, 7 deep)
-- `--iterations N` or `Iterations:` — bounded mode: run exactly N refinement rounds then stop
-- `--convergence N` or `Convergence:` — stop when winner repeats N times (default: 3)
-- `--chain <targets>` or `Chain:` — comma-separated tools to chain after convergence
-- `--judge-personas <list>` — custom judge persona overrides
-- `--no-synthesis` — skip synthesis phase, pure debate only
-- `--temperature <value>` — generation temperature hint
+Remaining text not matching flags = task description.
 
-If `Iterations: N` or `--iterations N` is found, set `max_iterations = N`. Track `current_iteration` starting at 0. After iteration N, print final summary and STOP.
+## Setup (if Task or Domain missing)
 
-All remaining text not matching flags is the task/question description.
+AskUserQuestion (single batch):
+  Q1 (Task): "What should be reasoned about?" — open text
+  Q2 (Domain): "What domain?" — software architecture, product strategy, business decision, security, research, content
+  Q3 (Mode): "Refinement mode?" — convergent (stop when winner repeats), creative (never auto-stop), debate (no synthesis)
+  Q4 (Judges): "How many blind judges?" — 3 (default), 5 (thorough), 7 (deep)
+If all provided → skip.
 
-## Execution
+## Setup Phase
 
-1. Read the reason workflow: `.claude/skills/autoresearch/references/reason-workflow.md`
-2. If task, domain, or mode is missing — use `AskUserQuestion` with batched questions per reason-workflow.md
-3. Execute the multi-phase reason workflow
-4. If bounded: after each iteration, check `current_iteration < max_iterations`. If not, STOP and print summary.
-5. If `--chain` is set, hand off to each chained command sequentially
+1. Load `references/reason-judge-protocol.md` for judge and convergence specs
+2. Parse domain → select domain-specific judge criteria
+3. Create output directory: `autoresearch/reason-{YYMMDD}-{HHMM}/`
+4. TSV header: `round\ttimestamp\tcandidate_label\tjudge_verdict\tconvergence_count\tdescription`
+5. Initialize: incumbent = null, convergence_count = 0
 
-Stream all output live — never run in background.
+## Round Loop
+
+### Phase 1: Generate-A
+- If round 1: Author-A generates first candidate from task description
+- If round N>1: incumbent is Author-A's candidate
+- Cold-start: Author-A sees ONLY task description + domain context
+
+### Phase 2: Critic
+- Critic receives candidate-A (cold-start, no shared session)
+- MUST find at least 3 specific weaknesses
+- MUST suggest what a superior candidate would do differently
+- Role is purely adversarial — never compliment
+
+### Phase 3: Generate-B
+- Author-B receives: task + candidate-A + critique (cold-start)
+- Produces candidate-B addressing critique while preserving A's strengths
+
+### Phase 4: Synthesize (unless --no-synthesis or debate mode)
+- Synthesizer receives: task + A + B (cold-start)
+- Produces hybrid candidate-AB merging best of both
+
+### Phase 5: Blind Judge Panel
+- Each judge receives 3 candidates with RANDOMIZED labels (Label-X, Label-Y, Label-Z)
+- Judges evaluate independently on domain-specific criteria
+- Each produces ranking + one-paragraph justification
+- Verdict: majority vote. Tie → synthesized candidate wins.
+
+### Phase 6: Convergence Check
+- If winner == incumbent → convergence_count++
+- If winner != incumbent → convergence_count = 1, winner becomes incumbent
+- **Convergent mode**: convergence_count >= N → CONVERGED, stop
+- **Creative mode**: never auto-stop
+- **Debate mode**: same as convergent, no synthesis
+
+### Phase 7: Oscillation Guard
+If incumbent changed 5+ times in last 8 rounds → recommend early stop (not converging).
+
+### Phase 8: Log
+Append to TSV: round, timestamp, winning candidate label, judge verdict, convergence_count, description
+
+### Eval Checkpoint
+If --evals: check if current_round % interval == 0 → run checkpoint.
+
+### Bounded Check
+If bounded: current_round >= max_iterations → exit loop.
+
+## Output
+
+- `reason-results.tsv` — per-round results
+- `lineage.md` — full history of candidates + critiques + judge reasoning
+- `summary.md` — final winner, convergence trajectory, key insights
+
+## Summary
+
+Print: total rounds, convergence status, final winner summary, judge agreement rate.
+
+## Eval Checkpoint (--evals flag)
+
+If --evals present:
+- Compute interval: floor(max_iterations / 3), min 1. Fixed 10 if unbounded.
+- Print: `--- Eval Checkpoint (rounds {X}-{Y}) ---\nIncumbent: {label} | Convergence: {count}/{target} | Oscillations: {n}\n{recommendation}\n---`
+- If oscillation detected 3+ checkpoints → recommend early stop.
+- At loop end → full evals summary to evals-summary.md.
+
+## Chain Handoff
+
+After completion, write handoff.json: version "2.1.0", source "reason", timestamp, status (COMPLETE|CONVERGED|USER_INTERRUPT|BOUNDED|ERROR), results_tsv path, findings = [{id, type: "recommendation", summary: winner description}], config{task, domain, mode}.
+Invoke next target in --chain order. Propagate --evals flag.

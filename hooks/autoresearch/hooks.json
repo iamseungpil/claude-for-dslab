@@ -1,0 +1,110 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/node-hook-runner.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/scout-block.cjs\"",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/node-hook-runner.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/privacy-block.cjs\"",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/node-hook-runner.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/scout-block.cjs\"",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/node-hook-runner.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/privacy-block.cjs\"",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/node-hook-runner.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/dangerous-cmd-block.cjs\"",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Glob|Grep|Read|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/node-hook-runner.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/scout-block.cjs\"",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/node-hook-runner.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/privacy-block.cjs\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/node-hook-runner.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/iteration-context.cjs\"",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/node-hook-runner.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/dev-rules-reminder.cjs\"",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/node-hook-runner.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/simplify-gate.cjs\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/node-hook-runner.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/subagent-context.cjs\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/node-hook-runner.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/session-init.cjs\"",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/node-hook-runner.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/stop-notify.cjs\"",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  }
+}
