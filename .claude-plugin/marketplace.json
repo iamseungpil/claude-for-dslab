@@ -5,7 +5,7 @@
   },
   "metadata": {
     "description": "DS Lab plugins for academic research, scientific skills, code review, codebase understanding, and core engineering workflows.",
-    "version": "0.4.0"
+    "version": "0.5.0"
   },
   "plugins": [
     {
@@ -64,6 +64,25 @@
         "workflows"
       ],
       "source": "./plugins/superpowers"
+    },
+    {
+      "name": "eli5",
+      "description": "Explain any topic like I'm 5: a dead-simple HTML picture explainer with big visuals and few words. Use /eli5 <topic>.",
+      "version": "1.0.0",
+      "author": {
+        "name": "Thariq Shihipar"
+      },
+      "homepage": "https://github.com/anthropics/claude-plugins-community",
+      "repository": "https://github.com/anthropics/claude-plugins-community",
+      "license": "MIT",
+      "keywords": [
+        "explain",
+        "eli5",
+        "learning",
+        "explainer",
+        "html"
+      ],
+      "source": "./plugins/eli5"
     }
   ]
 }
