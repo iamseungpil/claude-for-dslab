@@ -40,6 +40,7 @@ top-level `skills/`·`agents/`·`commands/`(install.sh 심링크 방식)와 별�
 | `iterative-academic-writer` | 학술 문서 반복 작성 (academic-planner + academic-reviewer) |
 | `iterative-code-review` | code-architect + code-reviewer + 테스트 반복으로 코드 품질 개선 |
 | `weekly-report-writer` | Git 변경사항 분석하여 학술 스타일 주간 보고서 생성 |
+| `deepswe-analyze` | harbor 실행 결과(DeepSWE·SWE-bench Pro·임의 scaffold)를 주차별 실패 추론 분석으로 — Sonnet 판정, 선행연구 분류, 대조쌍, Opus 일치도, 뷰어 배포 |
 | `codex-iterative-solver` | Codex CLI와 협업하여 복잡한 문제를 반복적으로 분석/해결 |
 | `paper-digest` | 논문 요약을 소셜 공유용(Discord/Slack/Twitter)으로 생성. 인사이트 중심 단일 문단 |
 | `survey-paper` | arxiv 논문을 Obsidian 서베이 노트로 변환. Digest + Iterative Writing + 플로우 다이어그램 |
