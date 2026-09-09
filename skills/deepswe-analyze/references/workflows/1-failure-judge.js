@@ -37,11 +37,23 @@ You are a senior software engineer reviewing why a coding agent failed one bench
    - verified_result (boolean): the model checked its own result against the requirements before finishing
    Be concrete and cite evidence from the transcript. Valid JSON only, UTF-8, no comments, no trailing commas.
 3. Return {id: "${id}", written: true, category, knowledge_gap} via the structured output. If you could not read the brief or write the file, return written: false.`
+// args is either the id list itself, or {file: <path to a JSON array of ids>} when the list is too
+// long to paste into the tool call (a full SWE-bench Pro sweep is ~1,800 ids). Reading the file is
+// delegated to one small agent so the ids never pass through the caller's context.
+const LIST_SCHEMA = { type: 'object', properties: { ids: { type: 'array', items: { type: 'string' } } }, required: ['ids'] }
+let ids = args
+if (!Array.isArray(args)) {
+  phase('List')
+  const listed = await agent(`Do this work YOURSELF. Read the JSON file ${args.file} (a JSON array of strings) with the Read tool — it may be long, read it in chunks until the closing bracket — and return every string it contains, in order, as {ids: [...]}. Return nothing else.`,
+    { label: 'list-ids', phase: 'List', schema: LIST_SCHEMA, model: 'sonnet', effort: 'low' })
+  ids = listed ? listed.ids : []
+  log(`${ids.length} ids read from ${args.file}`)
+}
 phase('Analyze')
 const results = await pipeline(
-  args,
+  ids,
   (id) => agent(prompt(id), { label: `analyze:${id}`, phase: 'Analyze', schema: SCHEMA, model: 'sonnet', effort: 'high' }),
 )
 const ok = results.filter(Boolean).filter(r => r.written)
-log(`${ok.length} verdicts written of ${args.length}`)
-return { written: ok.length, total: args.length, failed: args.filter(id => !ok.some(r => r.id === id)) }
+log(`${ok.length} verdicts written of ${ids.length}`)
+return { written: ok.length, total: ids.length, failed: ids.filter(id => !ok.some(r => r.id === id)) }
