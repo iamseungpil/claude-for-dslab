@@ -133,7 +133,7 @@ Use json.dump with ensure_ascii=False. Do not modify anything under jobs/analysi
 
 Report in 3 lines: how many you labelled, your root_cause distribution, and any label you found
 genuinely ambiguous.`,
-      { label: `crosscheck:${k}`, phase: 'Crosscheck', model: 'opus' }
+      { label: `crosscheck:${k}`, phase: 'Crosscheck', model: 'sonnet' }
     )
   )
 )

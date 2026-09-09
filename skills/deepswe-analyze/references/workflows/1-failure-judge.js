@@ -16,7 +16,9 @@ const SCHEMA = {
 }
 const CATEGORIES = 'misread_requirements, incomplete_implementation, wrong_strategy, localization, broke_existing_behavior, environment_or_tooling, no_verification, gave_up_or_ran_out, verifier_mismatch'
 const GAPS = 'language_or_stdlib, library_or_framework, codebase_conventions, requirement_interpretation, testing_discipline, algorithm_or_design, none'
-const prompt = (id) => `You are a senior software engineer reviewing why a coding agent failed one benchmark task.
+const prompt = (id) => `Do this work YOURSELF. Do not spawn sub-agents.
+
+You are a senior software engineer reviewing why a coding agent failed one benchmark task.
 
 1. Read the ENTIRE brief at ${ROOT}/jobs/analysis-briefs/${id}.md. It can be up to ~22,000 lines: read it in chunks with the Read tool (offset/limit) until you reach the end. Do not skip the transcript — the agent's own reasoning lines are the most important evidence.
 2. Decide why the attempt failed, then write your verdict as a single JSON object to ${ROOT}/jobs/analysis/${id}.json with EXACTLY these keys and types:

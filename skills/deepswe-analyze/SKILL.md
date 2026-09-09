@@ -23,7 +23,7 @@ Everything numeric is recomputed from the trials; nothing is copied from a previ
    failing tests, the FULL transcript with `[call N]` markers) and `jobs/analysis-wins/<id>.md` for passing ones.
    `jobs/analysis-briefs/pending.json` lists ids that still need a verdict.
 2. **Failure verdicts** — launch the Workflow in `references/workflows/1-failure-judge.js` with `args` = pending ids.
-   One Sonnet agent per trial, `effort: high`. The agent must read the whole brief in chunks and write
+   One Sonnet agent per trial, `effort: high`. Judge every failed trial — do not sample — unless the user asks for a sample. The agent must read the whole brief in chunks and write
    `jobs/analysis/<id>.json` with the 13-key schema in that script. Prefix every prompt with
    "Do this work YOURSELF. Do not spawn sub-agents." — without it Sonnet delegates and writes nothing.
 3. **Validate** — `scripts/pipeline.sh <repo> <week> validate`. Removes verdicts that fail the schema or the
@@ -34,9 +34,9 @@ Everything numeric is recomputed from the trials; nothing is copied from a previ
 5. **Success verdicts + contrast pairs** — Workflow `references/workflows/3-winners-contrast.js`.
    Success judges MUST carry the calibration line "passing does NOT prove the requirements were met"
    (without it every trial came back 100% covered). Contrast pairs: same model, same repo or task,
-   one pass one fail, judged by Opus with `decisive_factor` in {approach_differed, verification_differed,
+   one pass one fail, judged by Sonnet with `decisive_factor` in {approach_differed, verification_differed,
    task_was_harder, luck}.
-6. **Agreement check** — Opus re-judges `--crosscheck` trials independently on the three taxonomy axes;
+6. **Agreement check** — a second, blind Sonnet agent re-judges `--crosscheck` trials independently on the three taxonomy axes (same model family, separate context, no access to the first verdict);
    compute Cohen's kappa per axis. Report all three. If root-cause kappa < 0.6, stop and tell the user
    before publishing; do not silently proceed.
 7. **Collect + deploy** — `scripts/pipeline.sh <repo> <week> collect <jobs...>` then `... deploy <jobs...>`.

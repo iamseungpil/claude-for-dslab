@@ -85,7 +85,7 @@ difference was not principled — that is a real finding, not a failure to analy
 Touch only jobs/analysis-contrast/ and jobs/analysis-briefs/. Run no git commands.
 Report in 4 lines: how many pairs you did, the decisive_factor distribution, and one pair where the
 same model clearly changed its approach between the two runs.`,
-      { label: `contrast:${k}`, phase: 'Contrast', model: 'opus' }
+      { label: `contrast:${k}`, phase: 'Contrast', model: 'sonnet' }
     )
   )
 )
