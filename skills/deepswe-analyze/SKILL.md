@@ -22,7 +22,7 @@ Everything numeric is recomputed from the trials; nothing is copied from a previ
    Writes `jobs/analysis-briefs/<id>.md` for failed trials (task statement, reference patch, model patch,
    failing tests, the FULL transcript with `[call N]` markers) and `jobs/analysis-wins/<id>.md` for passing ones.
    `jobs/analysis-briefs/pending.json` lists ids that still need a verdict.
-2. **Failure verdicts** — launch the Workflow in `references/workflows/1-failure-judge.js` with `args` = pending ids, or `args` = `{"file": "<path>"}` pointing at a JSON array of ids when the list is long (the script reads it through one small agent so the ids stay out of your context).
+2. **Failure verdicts** — launch the Workflow in `references/workflows/1-failure-judge.js` with `args` = pending ids, or `args` = `{"file": "<path to a one-id-per-line text file>", "count": N}` when the list is long: each agent reads only its own line with `sed`, so no id list passes through any context. Do not try to have an agent echo the list back — 1,800 ids exceeds the output cap.
    One Sonnet agent per trial, `effort: high`. Judge every failed trial — do not sample — unless the user asks for a sample. The agent must read the whole brief in chunks and write
    `jobs/analysis/<id>.json` with the 13-key schema in that script. Prefix every prompt with
    "Do this work YOURSELF. Do not spawn sub-agents." — without it Sonnet delegates and writes nothing.

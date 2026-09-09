@@ -17,11 +17,11 @@ const SCHEMA = {
 const CATEGORIES = 'misread_requirements, incomplete_implementation, wrong_strategy, localization, broke_existing_behavior, environment_or_tooling, no_verification, gave_up_or_ran_out, verifier_mismatch'
 const GAPS = 'language_or_stdlib, library_or_framework, codebase_conventions, requirement_interpretation, testing_discipline, algorithm_or_design, none'
 const prompt = (id) => `Do this work YOURSELF. Do not spawn sub-agents.
-
+${byLine ? readId(id) + '\n' : ''}
 You are a senior software engineer reviewing why a coding agent failed one benchmark task.
 
-1. Read the ENTIRE brief at ${ROOT}/jobs/analysis-briefs/${id}.md. It can be up to ~22,000 lines: read it in chunks with the Read tool (offset/limit) until you reach the end. Do not skip the transcript — the agent's own reasoning lines are the most important evidence.
-2. Decide why the attempt failed, then write your verdict as a single JSON object to ${ROOT}/jobs/analysis/${id}.json with EXACTLY these keys and types:
+1. Read the ENTIRE brief at ${byLine ? `${ROOT}/jobs/analysis-briefs/<ID>.md` : `${ROOT}/jobs/analysis-briefs/${id}.md`}. It can be up to ~22,000 lines: read it in chunks with the Read tool (offset/limit) until you reach the end. Do not skip the transcript — the agent's own reasoning lines are the most important evidence.
+2. Decide why the attempt failed, then write your verdict as a single JSON object to ${byLine ? `${ROOT}/jobs/analysis/<ID>.json` : `${ROOT}/jobs/analysis/${id}.json`} with EXACTLY these keys and types:
    - category (string): exactly one of: ${CATEGORIES}
    - summary (string): two or three sentences — what went wrong and why the tests failed
    - plain_summary_ko (string): 한국어 한두 문장. 전문 용어 없이, 초등학생도 이해할 수 있게 이 시도가 왜 틀렸는지 설명
@@ -36,23 +36,18 @@ You are a senior software engineer reviewing why a coding agent failed one bench
    - ran_tests (boolean): the model ran the project's relevant test suite at least once
    - verified_result (boolean): the model checked its own result against the requirements before finishing
    Be concrete and cite evidence from the transcript. Valid JSON only, UTF-8, no comments, no trailing commas.
-3. Return {id: "${id}", written: true, category, knowledge_gap} via the structured output. If you could not read the brief or write the file, return written: false.`
-// args is either the id list itself, or {file: <path to a JSON array of ids>} when the list is too
-// long to paste into the tool call (a full SWE-bench Pro sweep is ~1,800 ids). Reading the file is
-// delegated to one small agent so the ids never pass through the caller's context.
-const LIST_SCHEMA = { type: 'object', properties: { ids: { type: 'array', items: { type: 'string' } } }, required: ['ids'] }
-let ids = args
-if (!Array.isArray(args)) {
-  phase('List')
-  const listed = await agent(`Do this work YOURSELF. Read the JSON file ${args.file} (a JSON array of strings) with the Read tool — it may be long, read it in chunks until the closing bracket — and return every string it contains, in order, as {ids: [...]}. Return nothing else.`,
-    { label: 'list-ids', phase: 'List', schema: LIST_SCHEMA, model: 'sonnet', effort: 'low' })
-  ids = listed ? listed.ids : []
-  log(`${ids.length} ids read from ${args.file}`)
-}
+3. Return {id: ${byLine ? "<the id you read>" : `"${id}"`}, written: true, category, knowledge_gap} via the structured output. If you could not read the brief or write the file, return written: false.`
+// args is either the id list itself, or {file, count} naming a text file with one id per line —
+// a full SWE-bench Pro sweep is ~1,800 ids, too many to paste into a tool call and far too many for
+// one agent to echo back (that attempt hit the 64k output cap). With {file, count} each agent reads
+// only its own line, so no id list passes through anyone's context.
+const byLine = !Array.isArray(args)
+const ids = byLine ? Array.from({ length: args.count }, (_, i) => i + 1) : args
+const readId = (n) => `Run \`sed -n '${n}p' ${byLine ? args.file : ''}\` to get the trial id for this task, then use that id everywhere <ID> appears below.`
 phase('Analyze')
 const results = await pipeline(
   ids,
-  (id) => agent(prompt(id), { label: `analyze:${id}`, phase: 'Analyze', schema: SCHEMA, model: 'sonnet', effort: 'high' }),
+  (id) => agent(prompt(id), { label: `analyze:${byLine ? 'line ' + id : id}`, phase: 'Analyze', schema: SCHEMA, model: 'sonnet', effort: 'high' }),
 )
 const ok = results.filter(Boolean).filter(r => r.written)
 log(`${ok.length} verdicts written of ${ids.length}`)
