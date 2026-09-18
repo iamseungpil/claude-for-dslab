@@ -51,6 +51,10 @@ top-level `skills/`·`agents/`·`commands/`(install.sh 심링크 방식)와 별�
 | `paper-section-rewrite` | 논문 한 섹션을 구조 plan critic loop → 두괄식 prose → 본문 critic loop → 수식·notation 감사 → LaTeX 빌드 검증까지 돌리는 섹션 단위 윤문. paper-digest의 insight-first, iterative-academic-writing의 두괄식, humanize-writing의 ML-비전공자 친화 원칙을 한 섹션 단위로 묶어서 적용. KO/EN 양쪽 지원 |
 | `stacked-research` | 실험 결과가 쌓이게 만드는 연구 규율. 설계·발사·판정, 사전등록·헌법·판정문, autoresearch 루프, 정본 코드 변경 승인에 적용. 같은 결론을 다시 사는 것, 무효 레버(선언은 있고 배선은 없는 것), 이미 되던 것을 조용히 깨뜨리는 것, 일회성 스크립트 증식, 문서가 진전을 대체하는 것을 막는다 |
 | `karpathy-guidelines` | Andrej Karpathy의 LLM 코딩 pitfall 관찰에서 도출한 4원칙(Think Before Coding / Simplicity First / Surgical Changes / Goal-Driven Execution). 코드 작성·리뷰·리팩토링 시 과잉 추상화·orthogonal edit·가정 은폐를 막는 행동 가이드. (from [multica-ai/andrej-karpathy-skills](https://github.com/multica-ai/andrej-karpathy-skills), MIT) |
+| `company-research-report` | 내러티브 중심(왜-무엇을-어떻게) 기업 투자 분석 보고서. Sankey·Bull/Bear/Base 추세선·용어집 포함 |
+| `sector-analysis` | 내러티브 기반 섹터 분석: 정책/테마 드라이버 → 밸류체인 매핑 → 핵심 노드 → 기업 선정 |
+| `fiction-workshop` | 소설·시나리오를 문장 단위로 함께 퇴고. 주제·내용·구성·문장 4축 검증 가능 기준, 버전 비교, HWPX 출력 |
+| `reading-guide` | 논문 PDF를 읽기 전 5분 사전 가이드로 변환. 구조 미리보기·용어 사전·능동적 읽기 워크시트, Obsidian Guides 폴더에 저장 |
 
 슬래시 명령:
 - `/humanize <텍스트 또는 파일>` — humanize-korean 풀 파이프라인 실행
