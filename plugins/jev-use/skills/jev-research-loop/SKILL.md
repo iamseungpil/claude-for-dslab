@@ -47,6 +47,11 @@ Every judging step runs under one of two backends, selected by `--judge`.
 | `runtime_error` | environment/execution (missing package, worker storm) | not a Jev target at all — logs and rc signatures |
 | `unclassified` | Jev `unsure` and the direct read did not settle it | you, and **`next_test` must not be empty** — name the concrete experiment that would split it (dump the step-1 advantage tensor; read function F in the framework source) |
 
+If results pass the design's own gates but no longer measure the intent's Pipeline contract
+metric, the cause is `intent_error`, not `design_error` or `measurement_error` — the loop
+returns to **Step 0**, not Step 1c: the gates were faithfully re-implemented against a
+contract that had already drifted.
+
 **Where each cause sends you back:** `intent_error` → **Step 0**, with the human;
 `design_error` → **Step 1c** (rewrite the design doc); `impl_error` → **Step 7**
 (implementation subagent) then re-audit; `measurement_error` → the **gate definition in
@@ -80,6 +85,14 @@ actually say. Never feed a statement with known factual errors: a wrong intent s
 dropped the alignment verdict **.65 → .52 on unchanged code**. A wrong document yields a
 confident wrong audit — that is `intent_error`.
 
+**Pipeline contract.** Whenever the owner has agreed a step-by-step pipeline in conversation,
+the intent doc MUST contain a section titled **"Pipeline contract" / "파이프라인 계약"**,
+copied **VERBATIM** from the owner's message, with the date. The main agent may not edit the
+intent doc's goals or contract except by quoting the owner's own sentence that changes it --
+put the quote and the date next to the change. A rewrite without a quote is how a design
+judge that only checks against `docs/INTENT.md` went on approving a drifted pipeline: the
+main agent had rewritten the reference itself.
+
 **Approval ledger (before judging anything).** List **every number and scale the human
 approved in conversation** — pool size, K, steps, seeds, level filter, budget — and check
 that each appears **verbatim in the intent doc**. A missing one is an `intent_error` owned
@@ -112,8 +125,9 @@ numbers are the one defect class no amount of property tuning reaches.
   **Expected effect** (baseline number, expected effect size *with its source*, and why the
   gate thresholds sit above the known noise band) · **Cost vs benefit** (money/time/tokens/
   lines, which intent goal advances by how much if it works, and one cheaper alternative it
-  beats) · **Closed axes not re-bought** · **Line budget**. A heading left empty is a Step 3
-  fail. **Hypotheses come from the project's hypothesis bank** when one exists: the main
+  beats) · **Closed axes not re-bought** · **Line budget** · **Contract check** -- a table,
+  contracted step → where this design implements it → deviation (none / owner quote), read
+  against the intent's Pipeline contract section. A heading left empty is a Step 3 fail. **Hypotheses come from the project's hypothesis bank** when one exists: the main
   agent picks and narrows them, it does not hand-write new ones beside the bank.
 
 ## Step 2 — DESIGN JUDGE (script → Jev)
@@ -358,6 +372,21 @@ agent judge: `... --judge agent results` writes the request file instead of call
 plus `continue`, a `choice` among `{continue, stop_arm, back_to_step_1}`. Any problem —
 gate missed, stop rule fired, metric mismatch — sends the loop back to **Step 1**, and
 `experiment-verifier` is the subagent to call when a reported number itself is in doubt.
+
+## Keep the documents true
+
+INTENT, design/plan, and any skill text the project relies on are updated **in the same
+step** as the change that makes them stale, never after: goals/contract change → **INTENT
+first** (quote + date), then design; a gate/stop rule/evaluator changes → a dated **design
+amendment**, before implementation; implementation deviates from `.jev-loop/plan.md` → the
+plan is amended with the reason before Step 8's audit; a lesson that generalises beyond this
+project → a skill PR.
+
+**Every step boundary ends with a 3-line check:** INTENT reflects the owner's latest words ·
+design/plan reflect what is actually being run · site pipeline/queue reflect the current
+step. Any "no" blocks the next step. Pass what synced as `--docs-synced
+intent,design,plan,site` to `--record`; with `--emit` on, a missing/incomplete list adds a
+warning sentence to the verdict's `plain`.
 
 ## Live record
 

@@ -328,6 +328,7 @@ NUMBERS_KO = {
     "design_quality": "설계 품질", "no_unimplemented": "미구현 없음", "no_duplication": "중복",
     "clean_code": "클린 코드", "failure_reproduced": "실패 재현", "no_leakage": "누출",
     "no_unnecessary": "불필요", "no_bugs": "버그", "quality": "품질",
+    "pipeline_contract_kept": "파이프라인 계약 준수", "contract_metric_used": "계약 지표 사용",
 }
 
 
@@ -518,6 +519,14 @@ def vkind(v: dict) -> str:
             "choice" if v["id"] in CHOICE_IDS else "noul")
 
 
+DOCS_SYNCED_KEYS = ("intent", "design", "plan", "site")
+
+
+def docs_synced_of(a) -> list[str]:
+    raw = getattr(a, "docs_synced", None)
+    return sorted({s.strip() for s in raw.split(",") if s.strip()}) if raw else []
+
+
 def record(a, rows: list) -> None:
     """Append one audit-state line to <out>/STATE.json.history; never delete entries.
 
@@ -540,6 +549,7 @@ def record(a, rows: list) -> None:
         "choice": {v["id"]: v.get("answer") for v in vs if vkind(v) == "choice"},
         "backend": next((r.get("backend") for _, r in rows if r.get("backend")), None),
         "escalated": sum(1 for v in vs if v.get("escalate")),
+        "docs_synced": docs_synced_of(a),
         "timestamp": datetime.datetime.now().isoformat(timespec="seconds")}
     st.setdefault("history", []).append(row)
     p.parent.mkdir(parents=True, exist_ok=True)
@@ -569,6 +579,9 @@ def live_verdict(a, rows: list) -> None:
     plain = next((r.get("plain") for _, r in rows if r.get("plain")), None) or (
         f"심판이 {len(vs)}가지를 확인했고 {len(bad)}가지가 기준에 못 미쳤어요. "
         + ("그래서 앞 단계로 돌아가요." if bad else "그래서 다음 단계로 가요."))
+    unsynced = sorted(set(DOCS_SYNCED_KEYS) - set(docs_synced_of(a)))
+    if unsynced:
+        plain += (f" 문서가 최신인지 확인하지 않았어요: {', '.join(unsynced)}.")[:400 - len(plain)]
     live.feed(EMIT, "verdict", a.cmd, verdict_title(a.cmd, (n for n, _ in rows)), plain,
               body="\n".join(f"{NUMBERS_KO.get(k, k)}({k})={x:.2f} — "
                              f"{by[k].get('reason') or by[k].get('evidence') or ''}"
@@ -644,6 +657,15 @@ DESIGN_Q = [
          " cheaper experiment answering the same question left un-run in the queue or design?",
          "no cheaper experiment would answer the same question",
          "a cheaper experiment answering the same question is sitting un-run"),
+    noul("pipeline_contract_kept", "If the intent document has a section titled 'Pipeline"
+         " contract' / '파이프라인 계약', does this design keep every numbered step of it (same"
+         " inputs, same kind of evaluator, same success metric), or amend a step ONLY by"
+         " quoting the owner's words that changed it? Substituting a different success metric"
+         " or evaluator for a contracted step is a violation.",
+         "every contracted step is present or amended with a quoted owner sentence, OR no"
+         " contract section exists -> answer high and say so",
+         "a step is dropped, replaced, or its success metric substituted without an owner"
+         " quote"),
 ]
 DESIGN_SCORE = {"id": "design_quality", "type": "score",
                 "question": "How complete is this design document as an experiment contract?",
@@ -652,10 +674,27 @@ DESIGN_SCORE = {"id": "design_quality", "type": "score",
                            "a complete, checkable contract"]}
 
 
+# Step 1c mandatory headings (SKILL.md); "Contract check" carries the pipeline-contract table.
+MANDATORY_DESIGN_HEADINGS = (
+    "Intent link", "Hypothesis", "Mechanism", "Gates", "Stop rules", "Novelty vs survey",
+    "Expected effect", "Cost vs benefit", "Closed axes not re-bought", "Line budget",
+    "Contract check")
+
+
+def missing_headings(text: str, headings=MANDATORY_DESIGN_HEADINGS) -> list[str]:
+    """Mandatory Step 1c headings absent from a design doc (a heading left empty is a
+    separate Step 3 fail, per SKILL.md); a missing heading is flagged here, loudly."""
+    return [h for h in headings if not re.search(rf"^#+\s*{re.escape(h)}", text, re.M | re.I)]
+
+
 def cmd_design(a) -> list:
     doc = Path(a.design)
+    text = doc.read_text()
+    missing = missing_headings(text)
+    if missing:
+        print(f"FLAGGED: {doc.name} is missing mandatory heading(s): {', '.join(missing)}")
     rows = emit(a, f"design.{doc.stem}", "design",
-                doc_state(Path(a.intent), [(f"DESIGN DOCUMENT: {doc.name}", doc.read_text())]),
+                doc_state(Path(a.intent), [(f"DESIGN DOCUMENT: {doc.name}", text)]),
                 DESIGN_Q + [DESIGN_SCORE])
     print("\nformal check only: any property < .5 or design_quality < 3.5 sends you back to"
           " Step 1c. Design QUALITY stays with the human.")
@@ -672,6 +711,10 @@ RESULT_Q = [
          " design defines it as, rather than a nearby one?",
          "the reported quantity matches the design's definition",
          "a reported number measures something else"),
+    noul("contract_metric_used", "Is the headline result the intent's Pipeline contract"
+         " success metric for this step -- not a proxy -- or does no contract section exist?",
+         "the headline metric is the contracted one, or no contract section exists",
+         "the headline result substitutes a proxy metric for the contracted one"),
 ]
 CONTINUE_Q = {"id": "continue", "type": "choice",
               "question": "Given these results against this design, what happens next?",
@@ -707,6 +750,10 @@ def main() -> None:
                     " appends a `verdict` line to DIR/feed.jsonl and patches DIR/loop.json."
                     " With --judge agent the verdicts file must carry a top-level \"plain\"")
     ap.add_argument("--step", type=int, help="loop step this judgment belongs to")
+    ap.add_argument("--docs-synced", metavar="intent,design,plan,site",
+                    help="comma list of documents confirmed in sync with this step's change;"
+                         " stored in STATE.json. Missing or incomplete + --emit adds a warning"
+                         " sentence to the emitted verdict's plain text")
     ap.add_argument("--record", action="store_true", help="append {step, subcommand, targets,"
                     " min_property, max_bug, scores, choice, backend, escalated, timestamp} to"
                     " <out>/STATE.json.history; an unreachable judgment appends nothing")

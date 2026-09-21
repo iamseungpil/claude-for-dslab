@@ -188,12 +188,31 @@ def test_design_questions() -> None:
     print("design questions")
     ids = [q["id"] for q in ra.DESIGN_Q]
     for q in ("novelty_stated", "novelty_vs_named_prior", "expected_effect_grounded",
-              "cost_benefit_stated", "cheapest_first"):
+              "cost_benefit_stated", "cheapest_first", "pipeline_contract_kept"):
         check(q in ids, f"design asks {q}")
     for q in ra.DESIGN_Q:
         check(set(q.get("criteria") or {}) == {"true", "false"}, f"{q['id']} has both criteria")
     check(all(q["id"] not in ra.HIGH_BAD for q in ra.DESIGN_Q),
           "every design question is high=good")
+    check(ra.NUMBERS_KO.get("pipeline_contract_kept") == "파이프라인 계약 준수",
+          "pipeline_contract_kept has its Korean label")
+    check("contract_metric_used" in [q["id"] for q in ra.RESULT_Q],
+          "results asks contract_metric_used")
+    check(ra.NUMBERS_KO.get("contract_metric_used") == "계약 지표 사용",
+          "contract_metric_used has its Korean label")
+
+
+def test_pipeline_contract_heading() -> None:
+    print("Contract check heading is a mandatory design heading")
+    check("Contract check" in ra.MANDATORY_DESIGN_HEADINGS,
+          "Contract check is in the mandatory heading list")
+    without = "## Intent link\nfoo\n"
+    missing = ra.missing_headings(without, headings=("Intent link", "Contract check"))
+    check(missing == ["Contract check"],
+          "a design text without the heading is flagged by missing_headings")
+    withit = "## Intent link\nfoo\n## Contract check\n| step | where | deviation |\n"
+    check(ra.missing_headings(withit, headings=("Intent link", "Contract check")) == [],
+          "a design text with the heading is not flagged")
 
 
 def test_impl_questions() -> None:
@@ -355,10 +374,39 @@ def test_emit_integration() -> None:
               "the feed is append-only")
 
 
+def test_docs_synced() -> None:
+    print("--docs-synced flag: stored + warns when incomplete")
+    with tempfile.TemporaryDirectory() as t:
+        d = Path(t)
+        args = bed(d) + ["--emit", "live", "--step", "8", "--docs-synced", "intent,design",
+                          "--record", "modules", "--files", "credit.py"]
+        run(args, d)
+        answer(d, "credit", plain="이번 판정은 정상이에요.")
+        p = run(args, d)
+        check(p.returncode == 0, f"the run succeeds (got {p.returncode})")
+        hist = json.loads((d / "aud" / "STATE.json").read_text())["history"]
+        check(hist[-1]["docs_synced"] == ["design", "intent"],
+              "docs_synced is stored on the history row, sorted")
+        line = json.loads((d / "live" / "feed.jsonl").read_text().splitlines()[-1])
+        check("plan" in line["plain"] and "site" in line["plain"],
+              "an incomplete docs_synced list warns in the emitted plain text")
+
+        d2 = Path(tempfile.mkdtemp())
+        args2 = bed(d2) + ["--emit", "live", "--step", "8", "--docs-synced",
+                           "intent,design,plan,site", "modules", "--files", "credit.py"]
+        run(args2, d2)
+        answer(d2, "credit", plain="이번 판정은 정상이에요.")
+        run(args2, d2)
+        line2 = json.loads((d2 / "live" / "feed.jsonl").read_text().splitlines()[-1])
+        check("확인하지 않았어요" not in line2["plain"],
+              "a complete docs_synced list carries no warning")
+
+
 def main() -> None:
     for fn in (test_scope, test_record_summary, test_unreachable, test_agent_round_trip,
-               test_design_questions, test_impl_questions, test_audit_extras,
-               test_plan_coverage_gate, test_verdict_title_and_labels, test_emit_integration):
+               test_design_questions, test_pipeline_contract_heading, test_impl_questions,
+               test_audit_extras, test_plan_coverage_gate, test_verdict_title_and_labels,
+               test_emit_integration, test_docs_synced):
         fn()
     print(f"\n{'FAILED: ' + '; '.join(FAILS) if FAILS else 'all checks passed'}")
     raise SystemExit(1 if FAILS else 0)
