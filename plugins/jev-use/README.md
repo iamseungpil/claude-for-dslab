@@ -71,6 +71,16 @@ Anything Jev can't or shouldn't decide comes back with `escalate: true`
 and a typed reason. Tools, verdict shape, escalation contract, CLI:
 [docs/reference.md](docs/reference.md).
 
+## Research code audit
+
+`skills/jev-research-audit` audits research code against a written intent doc:
+the LLM derives per-property `noul` questions with `criteria`, `scripts/research_audit.py`
+batches them per module into one `jev-use judge` call (state by reference, never in the
+conversation), and narrows flagged modules to functions. Every finding gets a cause
+(`intent_error` / `design_error` / `impl_error` / `measurement_error` / `runtime_error`)
+and a confidence; verdicts are priors, so the direct read is mandatory. Measured
+detection and blind spots: [docs/research-audit-evidence.md](docs/research-audit-evidence.md).
+
 ## Small enough to read
 
 | File | Job |
@@ -83,6 +93,8 @@ and a typed reason. Tools, verdict shape, escalation contract, CLI:
 | [src/server.ts](src/server.ts) | The two MCP tools |
 | [src/cli.ts](src/cli.ts) | `install`, `serve`, `hook gate`, `doctor` |
 | [skills/jev-use/SKILL.md](skills/jev-use/SKILL.md) | The routing rules the agent follows |
+| [skills/jev-research-audit/SKILL.md](skills/jev-research-audit/SKILL.md) | Intent-conformance audit for research code |
+| [scripts/research_audit.py](scripts/research_audit.py) | Its batching/narrowing/calibration driver |
 
 ## Development
 
