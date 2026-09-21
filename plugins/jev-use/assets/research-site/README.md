@@ -142,3 +142,23 @@ KV(`FEED`)에 이어 붙인다. **지금은 KV 바인딩 권한이 없어 배포
 
 ### 자가 점검
 `AUDIT_RUBRIC.md` 의 아홉 줄(W1·S1·S2·D1·L1·L2·L3·V1·R1)을 스크린샷을 보고 0~2로 매겨 `site/AUDIT.md` 에 남긴다.
+
+## 파이프라인 판 (pipeline.json)
+
+연구 전체를 번호 붙은 상자 한 판으로 그린다. 설정의 `live` 또는 prepare 의 `live()` 가 `pipeline` 을 넘겨 준다.
+
+```json
+{"bands":[{"id":"b1","label":"왜 지는지 찾기","color":"var(--c1)","from":1,"to":6}],
+ "nodes":[{"n":9,"id":"harness","label":"가설 하네스 5바퀴","band":"b2","exp":"e12","weeks":["4"],
+           "state":"done|running|failed|returned|next|blocked","status":"진행 중","number":"2 / 4",
+           "one_line":"아이도 따라올 결과 한 줄","stats_block":"bank","cases_filter":{"cmp":"교사만 풂"},
+           "back_to":"pairs","back_reason":"…","blocked_reason":"…",
+           "modules":[{"id":"q","label":"자료 조회","state":"running"}]}],
+ "side_nodes":[{"id":"footprint","label":"패치 발자국","state":"failed","back_to":"anatomy","back_reason":"…"}]}
+```
+
+- 상자를 누르면 `stats_block` 의 차트와 `cases_filter` 의 사례가 서랍에 열리고, `modules` 가 있으면 2층 판이 그려진다.
+- 모듈을 누르면 `data/artifacts/<종류>_<바퀴>.json` 을 받아 원문을 보여 준다(각 200KB 상한, 넘으면 '잘림').
+- 모듈 상태는 `prepare` 가 파일에서 추론한다(방금 커진 기록 = "응답 중", 다음 산출물이 없으면 "대기").
+  사람이 정확히 적고 싶으면 `emit.py node --id … --state … [--module … --module-state …]` 를 쓴다.
+- 주차를 고르면 같은 판이 그 주에 움직인 상자만 진하게 보여 주는 주차 요약이 된다.
