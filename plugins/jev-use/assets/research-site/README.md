@@ -95,3 +95,50 @@ DeepSWE 판의 구현은 `tools/deepswe_prepare.py` 에 있다.
 피드 한 줄을 실시간으로 받는 Cloudflare Pages Functions 엔드포인트다. Access JWT로 사람을 확인하고
 KV(`FEED`)에 이어 붙인다. **지금은 KV 바인딩 권한이 없어 배포하지 않는다** — 붙일 때 `wrangler.toml` 에
 `ACCESS_AUD` 와 KV 바인딩을 넣고 `functions/` 를 배포 대상에 포함시키면 된다.
+
+## 2판에 더해진 것
+
+### 주차 요약 (weekly.json)
+설정의 `weekly` 가 가리키는 파일이 주차 카드를 준다. 카드 하나:
+
+```json
+{"week":"3","title":"…","intent":"알아보려던 것","method":"한 일","result":"결과 한 줄",
+ "number":"194 대 35","status":"ok|un|rt|run","source":"근거 파일 경로와 칸 이름",
+ "cases":[{"label":"교사만 푼 문제","patch":{"cmp":"교사만 풂"}}],
+ "retracted":["철회한 문장"]}
+```
+
+빌드가 `cases[].patch` 를 실제 사례(줄 열쇠 + 모델)로 바꿔 `stats.json.weekly` 에 담는다.
+**숫자는 `source` 에 적힌 파일에 실제로 있는 것만 쓴다.** 확실하지 않으면 숫자를 빼고 말로만 적는다.
+
+### 진행 중 실험 패널 (live.panels)
+`prepare.live()` 가 만든다. 한 장:
+
+```json
+{"id":"proposer","title":"…","plain":"쉬운 설명","headline":"한 줄 요약","gate_pass":false,
+ "rounds":[{"round":4,"metrics":[{"label":"남음","v":2,"of":null}],"gate":{"threshold":3,"pass":false},
+            "cards":[{"claim":"…","target":"…","verdict":"남음|기각|미정","rates":[{"label":"…","v":36.1}],
+                      "ci":[0.07,0.34],"reason":"…","full":{"card":{},"verdict_json":{}}}],
+            "report":"제안자 보고서 원문","report_path":"…"}]}
+```
+
+화면은 수치 → 카드 표 → **원문(카드 JSON · 판정 JSON · 보고서)** 순으로 펼친다. 비밀 파일(정답지 등)은 절대 싣지 않는다.
+
+### 지도 (live.map)
+`{goals:[{id,label,desc,questions:[{id,label,running,experiments:[{id,name,phase,intent,method,result}]}]}]}`.
+`phase` 는 `past|running|next` 이고, running 노드에 "여기" 표시가 붙는다. 노드를 누르면 기록·큐가 그 실험으로 좁혀진다.
+
+### 실시간 (KV) — 선택
+- `kv_push.py` 가 기록 꼬리·루프·큐·창고·패널을 KV 키 `live` 에 넣는다(REST API, 토큰은 환경변수).
+- `functions/api/live.js` 가 그것을 읽어 준다. 라이브 탭은 보일 때 10초마다 부르고, 없으면 조용히 정적 자료를 쓴다.
+- `functions/api/control.js` 는 사람이 남기는 의도(다음 순서·중단 요청·메모)를 `control` 키에 쓴다.
+  쓰기는 Access JWT 검증을 통과해야 하고, `ACCESS_AUD` 가 없으면 읽기 전용(503)으로 떨어진다.
+- 설정: `"kv": {"account_id": "...", "namespace_id": "...", "binding": "LIVE"}`.
+
+### 쌓이는 보고서 (snapshot.py)
+`python research-site/snapshot.py --site site --week 2026-W39 --week-id 4 --label "4주차 보고서"`
+→ `site/reports/<주차>/` 에 화면과 그때의 자료를 얼리고 `reports/index.json`·`data/reports.json` 에 줄을 더한다.
+`--max-week` 를 주면 그 주차까지의 자료만 남긴다. 얼린 화면은 실시간 갱신을 하지 않고 띠로 그 사실을 알린다.
+
+### 자가 점검
+`AUDIT_RUBRIC.md` 의 아홉 줄(W1·S1·S2·D1·L1·L2·L3·V1·R1)을 스크린샷을 보고 0~2로 매겨 `site/AUDIT.md` 에 남긴다.

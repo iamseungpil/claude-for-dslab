@@ -37,13 +37,17 @@ window.Site.charts = (function () {
   }
   const legend = (items) => `<span class="lg">${items.map(([t, c], i) => `<span><i style="background:${color(c, i)}"></i>${esc(t)}</span>`).join("")}</span>`;
   // 신뢰구간 SVG. rows: {label, point, lo, hi, n, patch, title}
+  // 가로 폭을 실제 표시 폭에 가깝게 잡는다 — viewBox 가 좁으면 글자가 통째로 확대돼 거대하게 보인다.
+  // 왼쪽 라벨 칸은 가장 긴 라벨에 맞춘다(잘리지 않게).
   function ci(rows, o) {
-    const W = 560, L = 150, R = 74, H = 22, top = 16, h = top + rows.length * H + 18;
+    const longest = Math.max(4, ...rows.map((r) => String(r.label).length));
+    const W = 1100, L = Math.min(360, 20 + longest * 11), R = 120, H = 26, top = 18;
+    const h = top + rows.length * H + 20;
     const x = (v) => L + (W - L - R) * Math.min(100, Math.max(0, v)) / 100;
     const grid = [0, 25, 50, 75, 100].map((v) => `<line class="ax" x1="${x(v)}" y1="${top - 6}" x2="${x(v)}" y2="${h - 16}"/><text x="${x(v)}" y="${h - 4}" text-anchor="middle">${v}%</text>`).join("");
     const body = rows.map((r, i) => {
       const y = top + i * H + H / 2, f = r.patch ? fa(r.patch) : "";
-      return `<text class="lb" x="${L - 8}" y="${y + 4}" text-anchor="end" ${f}>${esc(r.label)}</text>`
+      return `<text class="lb${r.hl ? " hl" : ""}" x="${L - 8}" y="${y + 4}" text-anchor="end" ${f}>${esc(r.label)}</text>`
         + `<line class="iv" x1="${x(r.lo)}" y1="${y}" x2="${x(r.hi)}" y2="${y}" ${f}><title>${esc(r.title || "")}</title></line>`
         + `<circle cx="${x(r.point)}" cy="${y}" r="4" ${f}><title>${esc(r.title || "")}</title></circle>`
         + `<text class="v" x="${W - R + 6}" y="${y + 4}">${r.point}%${r.n != null ? ` (${num(r.n)})` : ""}</text>`;

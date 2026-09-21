@@ -72,6 +72,48 @@
   }
 
   const outMeta = (o) => (S.meta.matrix.outcomes || {})[o] || {cls: "", short: o};
+  const benchKey = () => S.meta.matrix.bench_facet || "";
+
+  // 벤치 전환 — 시험지가 다르면 모델도 과제도 다르다. 섞어 놓으면 빈 칸만 가득한 표가 된다.
+  function renderBenchBar() {
+    const bk = benchKey();
+    if (!bk) return;
+    const f = fb.byKey[bk];
+    const vals = (f && f.values) || [];
+    $("benchbar").innerHTML = `<span class="seglbl">시험지</span><span class="seg">`
+      + vals.map(([v, lab, n]) => `<button ${fa({[bk]: v})} data-seg="1" class="${F()[bk] === v ? "on" : ""}">${esc(lab)} <span style="opacity:.7">${num(n)}</span></button>`).join("")
+      + `<button ${fa({[bk]: ""})} data-seg="1" class="${F()[bk] ? "" : "on"}">전부</button></span>`
+      + `<span class="seglbl">${F()[bk] ? "이 시험지를 푼 모델만 열로 나옵니다" : "시험지를 고르면 그 모델만 열로 나옵니다"}</span>`;
+  }
+  // 지금 걸러진 줄에 시행이 하나라도 있는 열만 그린다 (빈 열은 아예 만들지 않는다).
+  function colsShown() {
+    const live = new Set();
+    for (const r of view) for (const m of Object.keys(r.cells)) live.add(m);
+    const out = cols.filter((c) => live.has(c));
+    return out.length ? out : allCols.filter((c) => live.has(c));
+  }
+  function renderTiles() {
+    const ps = S.meta.presets || [];
+    if (!ps.length) { $("tiles").innerHTML = ""; return; }
+    const base = S.rows.filter((r) => (!S.week || r.week === S.week) && (!F()[benchKey()] || String(r[fb.byKey[benchKey()].field]) === F()[benchKey()]));
+    $("tiles").innerHTML = `<div class="tg">` + ps.map((p) => {
+      const key = Object.keys(p.patch)[0], val = p.patch[key], f = fb.byKey[key];
+      const n = !f ? 0 : base.filter((r) => arr(r[f.field]).map(String).includes(String(val))).length;
+      const on = fb.matches(p.patch);
+      return `<button class="tile${on ? " on" : ""}" data-pre="${esc(p.id)}" title="${esc(p.desc || "누르면 이 과제만 봅니다")}">`
+        + `<span class="v">${num(n)}</span><span class="k">${esc(p.label)}</span>`
+        + `<span class="s">${esc(p.desc || "누르면 이 과제만")}</span></button>`;
+    }).join("") + `</div>`;
+  }
+  function renderLegend() {
+    const om = S.meta.matrix.outcomes || {};
+    const seen = new Set();
+    for (const r of view.slice(0, 400)) for (const c of Object.values(r.cells)) seen.add(c.o);
+    const items = Object.entries(om).filter(([k]) => seen.has(k));
+    $("legend").innerHTML = `<b style="font-weight:600;color:var(--fg)">칸 읽는 법</b>`
+      + items.map(([k, v]) => `<span class="cel ${v.cls}" style="cursor:default">${esc(v.short || k)}</span><span>${esc(k)}</span>`).join("")
+      + `<span class="cel na" style="cursor:default">·</span><span>이 조건에는 시행 없음</span>`;
+  }
   function hl(text, term) {
     if (!term) return esc(text);
     const re = new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi");
@@ -89,6 +131,7 @@
       wrap.innerHTML = `<p class="empty" style="padding:16px 4px">이 조건에 맞는 과제가 없습니다. 필터를 지우거나 주차를 넓혀 보세요.</p>`;
       return;
     }
+    const cols = colsShown();
     const head = `<tr><th>과제</th>` + cols.map((c) => `<th title="${esc(c)}">${esc(shortCol(c))}</th>`).join("")
       + extra.map((c) => `<th data-sort="${esc(c.field)}" title="누르면 이 열로 정렬">${esc(c.label)}</th>`).join("") + `</tr>`;
     const body = view.slice(0, shown).map((r, i) => {
@@ -100,8 +143,8 @@
         return `<td><span class="cel ${om.cls}${on ? " cur" : ""}" data-cell="${esc(c)}" data-row="${esc(r.k)}" `
           + `title="${esc(c + " · " + cl.o + (cl.e ? " · " + cl.e.slice(0, 90) : ""))}">${esc(om.short || cl.o)}</span></td>`;
       }).join("");
-      return `<tr data-i="${i}" class="${i === idx ? "cur" : ""}"><td class="tk"><b>${hl(r.task_short || r.task, term)}</b>`
-        + `<span class="sub">${hl(r.title || "", term)}</span></td>${cells}`
+      return `<tr data-i="${i}" class="${i === idx ? "cur" : ""}"><td class="tk"><b>${hl(r.title || r.task_short || r.task, term)}</b>`
+        + `<span class="sub">${hl(r.task_short || r.task, term)}</span></td>${cells}`
         + extra.map((c) => `<td>${esc(String(r[c.field] ?? ""))}</td>`).join("") + `</tr>`;
     }).join("");
     wrap.innerHTML = `<table><thead>${head}</thead><tbody>${body}</tbody></table>`
@@ -116,19 +159,20 @@
     const r = cur.row, c = r.cells[cur.model];
     $("r-model").textContent = shortCol(cur.model);
     $("r-out").textContent = c ? c.o : "시행 없음";
-    $("r-task").textContent = `${r.task} · ${r.repo || ""} · ${r.lang || ""}`;
+    $("r-task").textContent = `${r.repo || ""} · ${r.lang || ""} · 고칠 파일 ${r.files || "?"}개`;
+    $("r-title").innerHTML = `<b>${esc(r.task)}</b><br>${esc(r.title || "(문제 설명 요약 없음)")}`
+      + `<br><span class="meta">${esc(r.week_label || r.week)} · ${esc(r.bench)} · 이 과제를 푼 모델 ${r.solvers} / ${r.n_models}`
+      + (r.cmp && r.cmp.length ? ` · ${esc(r.cmp.join(", "))}` : "") + `</span>`;
     const raw = c && c.h;
     $("r-raw").hidden = !raw;
     if (raw) $("r-raw").href = raw;
     const names = S.meta.kv_labels || [];
     const kv = ((c && c.kv) || []).map(([i, v]) => [names[i] ?? i, v]);
-    $("r-kv").innerHTML = [["주차", r.week_label || r.week], ["벤치", r.bench], ["저장소", r.repo], ["언어", r.lang],
-      ["고칠 파일 수", r.files], ["푼 모델 수", `${r.solvers} / ${r.n_models}`]]
-      .concat(kv).filter(([, v]) => v != null && v !== "")
-      .map(([k, v]) => `<span class="k">${esc(k)}</span><span>${esc(String(v))}</span>`).join("");
-    $("r-err").hidden = !(c && c.e);
-    if (c && c.e) $("r-err").textContent = c.e;
-    $("r-others").innerHTML = cols.map((m) => {
+    $("r-kv").innerHTML = kv.filter(([, v]) => v != null && v !== "")
+      .map(([k, v]) => `<span class="k">${esc(k)}</span><span>${esc(String(v))}</span>`).join("")
+      || `<span class="k">기록</span><span>이 시행에는 남은 사실이 없습니다</span>`;
+    $("r-err").textContent = (c && c.e) || "기록 없음 (오류 줄이 남지 않았습니다)";
+    $("r-others").innerHTML = colsShown().filter((m) => r.cells[m]).map((m) => {
       const cl = r.cells[m], om = cl ? outMeta(cl.o) : {cls: "na", short: "·"};
       return `<button class="o${m === cur.model ? " cur" : ""}" data-cell="${esc(m)}" data-row="${esc(r.k)}">`
         + `<b>${esc(shortCol(m))}</b><span class="cel ${om.cls}">${esc(cl ? cl.o : "시행 없음")}</span></button>`;
@@ -170,7 +214,10 @@
     const total = S.rows.filter((r) => !S.week || r.week === S.week).length;
     $("counter").textContent = `${num(view.length)} / ${num(total)} 과제`
       + (mode === "detail" && view.length ? ` · ${idx + 1}번째` : "") + (fb.bits().length ? ` · ${fb.text()}` : "");
-    if (mode === "list") renderMatrix(); else renderDetail();
+    renderBenchBar();
+    renderTiles();
+    if (mode === "list") { renderLegend(); renderMatrix(); } else renderDetail();
+    $("legend").hidden = mode !== "list";
     $("record").hidden = mode !== "detail" || !cur;
   }
   function applyAndShow(patch, m) {
@@ -178,16 +225,11 @@
     recompute();
     fb.setCounts(counts());
     fb.sync();
-    renderPresets();
     S.writeUrl();
     if (mode === "detail" && (!cur || !view.some((r) => r.k === cur.row.k))) setMode("list", true);
     render();
   }
 
-  function renderPresets() {
-    $("presets").innerHTML = (S.meta.presets || []).map((p) =>
-      `<button class="pre${fb.matches(p.patch) ? " on" : ""}" data-pre="${esc(p.id)}" title="${esc(p.desc || "")}">${esc(p.label)}</button>`).join("");
-  }
   function renderColPop() {
     $("colpop").innerHTML = `<span class="d">행렬에 보일 모델 열입니다. 끄면 열만 숨고 필터에는 영향이 없습니다.</span>`
       + allCols.map((c) => `<label class="ck${cols.includes(c) ? " on" : ""}"><input type="checkbox" data-col="${esc(c)}" ${cols.includes(c) ? "checked" : ""}>${esc(shortCol(c))}</label>`).join("");
@@ -218,12 +260,14 @@
       cols = allCols.slice(0, S.meta.matrix.default_columns || allCols.length);
       fb = new S.FilterBar($("fbar"), facets, (patch, m) => applyAndShow(patch, m === "cleared" ? "toggle" : m));
       fb.read(qs);
+      // 첫 진입은 시험지 하나를 골라 둔다 — 섞어 놓으면 빈 칸만 가득한 표가 먼저 보인다.
+      const bk = benchKey(), db = S.meta.matrix.default_bench;
+      if (bk && db && !qs.has(bk)) fb.F[bk] = db;
       fb.build();
       renderColPop();
       recompute();
       fb.setCounts(counts());
       fb.sync();
-      renderPresets();
       const rid = qs.get("r");
       if (rid) { const [rk, mm] = rid.split("||"); openCell(rk, mm, true); }
       document.addEventListener("keydown", onKey);
@@ -237,6 +281,8 @@
           if (p) { for (const k of Object.keys(p.patch)) fb.F[k] = ""; applyAndShow(fb.matches(p.patch) ? {} : p.patch, "replace"); }
           return;
         }
+        const seg = e.target.closest("[data-seg]");   // 벤치 전환은 그 값으로 바꾼다(토글이 아니다)
+        if (seg) { applyAndShow(JSON.parse(seg.dataset.f), "replace"); return; }
         const sort = e.target.closest("[data-sort]");
         if (sort) { sortKey = sortKey === sort.dataset.sort ? "" : sort.dataset.sort; recompute(); render(); return; }
         const tr = e.target.closest("#matwrap tbody tr");
@@ -254,6 +300,7 @@
       $("colbtn").addEventListener("click", () => { $("colpop").hidden = !$("colpop").hidden; });
       $("m-list").addEventListener("click", () => setMode("list"));
       $("m-detail").addEventListener("click", () => { if (!cur && view.length) { const r = view[idx]; cur = {row: r, model: cols.find((c) => r.cells[c]) || cols[0]}; } setMode("detail"); });
+      render();   // 다른 탭에서 시작해도 행렬은 미리 그려 둔다
       $("r-prev").addEventListener("click", () => move(-1));
       $("r-next").addEventListener("click", () => move(1));
     },
@@ -261,13 +308,35 @@
     goto(patch) {
       fb.clear();
       fb.apply(patch || {}, "replace");
+      const bk = benchKey();
+      if (bk && !fb.F[bk]) {   // 시험지를 안 적어 준 조건은 맞는 줄이 가장 많은 시험지로 맞춘다
+        recompute();
+        const c = {};
+        for (const r of view) c[r[fb.byKey[bk].field]] = (c[r[fb.byKey[bk].field]] || 0) + 1;
+        const top = Object.entries(c).sort((a, b) => b[1] - a[1])[0];
+        if (top) fb.F[bk] = top[0];
+      }
       setMode("list", true);
       cur = null;
       applyAndShow(null, "replace");
       S.setTab("data");
     },
+    // 통계·주차 카드의 '대표 사례' 링크 — 그 사례 하나를 바로 연다.
+    openCase(k, model, patch) {
+      fb.clear();
+      fb.apply(patch || {}, "replace");
+      const bk = benchKey();
+      if (bk && !fb.F[bk]) fb.F[bk] = String(k).split("|")[1] || "";
+      recompute();
+      fb.setCounts(counts()); fb.sync();
+      if (view.some((r) => r.k === k)) openCell(k, model, true);
+      else { cur = null; setMode("list", true); }
+      S.writeUrl();
+      render();
+      S.setTab("data");
+    },
     onWeek() { recompute(); fb.setCounts(counts()); fb.sync(); render(); },
-    readUrl(qs) { fb.read(qs); recompute(); fb.setCounts(counts()); fb.sync(); renderPresets(); const rid = qs.get("r"); if (rid) { const [rk, mm] = rid.split("||"); openCell(rk, mm, true); } else setMode("list", true); },
+    readUrl(qs) { fb.read(qs); recompute(); fb.setCounts(counts()); fb.sync(); const rid = qs.get("r"); if (rid) { const [rk, mm] = rid.split("||"); openCell(rk, mm, true); } else setMode("list", true); },
     qsWith() {
       const q = new URLSearchParams(fb.qs());
       if (mode === "detail" && cur) q.set("r", cur.row.k + "||" + cur.model);

@@ -95,8 +95,63 @@ def build_rows(cfg, trials):
         r["n_models"] = len(r["cells"])
         r["solvers"] = sum(1 for c in r["cells"].values() if c["o"] == passv)
         out.append(r)
+    # 저장소별로 번갈아 놓는다 — 알파벳순으로 두면 첫 화면이 한 저장소로만 차서 시험지를 오해한다.
     out.sort(key=lambda r: (str(r.get("week") or ""), str(r.get("repo") or ""), str(r.get("task") or "")))
+    seen = collections.Counter()
+    for r in out:
+        r["_i"] = seen[(r.get("week"), r.get("repo"))]
+        seen[(r.get("week"), r.get("repo"))] += 1
+    out.sort(key=lambda r: (str(r.get("week") or ""), r["_i"], str(r.get("repo") or "")))
+    for r in out:
+        r.pop("_i", None)
     return out
+
+
+def _vals(x):
+    return x if isinstance(x, list) else [] if x in (None, "") else [x]
+
+
+def match_rows(cfg, rows, patch, facets_by_key):
+    """필터 patch(=화면과 같은 규칙) 에 맞는 과제 줄. 대표 사례를 고르는 데 쓴다."""
+    focus = patch.get(cfg["matrix"].get("focus_facet"))
+    out = []
+    for r in rows:
+        ok = True
+        cell_reqs = {}
+        for k, v in patch.items():
+            if k == "week":
+                ok = ok and str(r.get("week")) == str(v)
+                continue
+            f = facets_by_key.get(k)
+            if not f or k == cfg["matrix"].get("focus_facet"):
+                continue
+            if f.get("scope") == "cell":
+                cell_reqs[f["field"]] = v
+            else:
+                ok = ok and str(v) in [str(x) for x in _vals(r.get(f["field"]))]
+            if not ok:
+                break
+        if not ok:
+            continue
+        cells = [(focus, r["cells"].get(focus))] if focus else list(r["cells"].items())
+        hit = [m for m, c in cells if c and all(str(vv) in [str(x) for x in _vals(c.get(ff))]
+                                                for ff, vv in cell_reqs.items())]
+        if cell_reqs and not hit:
+            continue
+        out.append((r, hit[0] if hit else (focus or next(iter(r["cells"]), ""))))
+    return out
+
+
+def resolve_cases(cfg, rows, facets_by_key, patch, n=3, label=""):
+    """patch → 대표 사례 몇 개 (줄 열쇠 + 모델). 정렬이 고정돼 있어 다시 돌려도 같은 것이 나온다."""
+    hits = match_rows(cfg, rows, patch, facets_by_key)
+    out = []
+    for r, m in hits[:n]:
+        out.append({"label": label or (r.get("task_short") or r.get("task")),
+                    "task": r.get("task_short") or r.get("task"), "k": r["k"], "model": m,
+                    "title": (r.get("title") or "")[:60],
+                    "repo": r.get("repo"), "outcome": (r["cells"].get(m) or {}).get("o")})
+    return {"n": len(hits), "cases": out, "patch": patch}
 
 
 def facet_values(cfg, rows, facet):
@@ -186,6 +241,17 @@ def main():
     blocks = []
     if hook and hasattr(hook, "blocks"):
         blocks = hook.blocks(root, rows, trials, cfg)
+    # 블록·주차 카드가 적어 둔 case_patch 를 실제 사례(줄 열쇠 + 모델)로 바꾼다 — 화면은 링크만 그린다.
+    fbk = {f["key"]: f for f in facets}
+    for b in blocks:
+        if b.get("case_patch"):
+            b["cases"] = resolve_cases(cfg, rows, fbk, b.pop("case_patch"))
+    weekly = load_json(rel(cfg["weekly"])) if cfg.get("weekly") else None
+    cards = (weekly or {}).get("weeks", [])
+    for c in cards:
+        for cs in c.get("cases", []):
+            if cs.get("patch"):
+                cs["resolved"] = resolve_cases(cfg, rows, fbk, cs["patch"], 3, cs.get("label", ""))
 
     live = {"updated": BUILT}
     if hook and hasattr(hook, "live"):
@@ -197,7 +263,8 @@ def main():
 
     dump(out_dir, "meta.json", meta)
     dump(out_dir, "rows.json", {"built_at": BUILT, "rows": rows})
-    dump(out_dir, "stats.json", {"built_at": BUILT, "blocks": blocks})
+    dump(out_dir, "stats.json", {"built_at": BUILT, "blocks": blocks,
+                                 "weekly": cards, "weekly_note": (weekly or {}).get("note", "")})
     dump(out_dir, "live.json", live)
     miss = sum(1 for b in blocks if b.get("missing"))
     print(f"과제 {len(rows)}줄 · 시행 {len(trials)}건 · 열 {len(cols)}개 · 질문 {len(blocks)}개"

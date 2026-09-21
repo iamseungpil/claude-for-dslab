@@ -172,7 +172,7 @@ window.Site = (function () {
     $("tab-stats").hidden = t !== "stats";
     $("tab-live").hidden = t !== "live";
     if (t === "stats") S.stats_render();
-    if (t === "live") S.live_render();
+    if (t === "live") { S.live_render(); if (S.live_start) S.live_start(); }
     if (t === "data") S.list.render();
     if (!silent) S.writeUrl();
   };
@@ -212,11 +212,27 @@ window.Site = (function () {
     const qs = new URLSearchParams(location.search);
     S.week = qs.get("week") || "";
     for (const b of document.querySelectorAll("#weeksel button")) b.classList.toggle("on", (b.dataset.week || "") === S.week);
-    const [rows, stats, live] = await Promise.all([load("rows.json"), load("stats.json", true), load("live.json", true)]);
+    const [rows, stats, live, reports] = await Promise.all(
+      [load("rows.json"), load("stats.json", true), load("live.json", true), load("reports.json", true)]);
     S.rows = (rows && rows.rows) || [];
     S.stats = stats; S.live = live;
+    // 얼린 보고서(스냅샷)는 그때의 자료만 보여 주고 실시간 갱신을 하지 않는다.
+    S.frozen = !!(meta.frozen_at);
+    if (S.frozen) {
+      $("frozen").hidden = false;
+      $("frozen").textContent = `이 화면은 ${meta.frozen_at} 에 얼린 보고서입니다 — 그때의 자료만 들어 있고 실시간 갱신을 하지 않습니다.`;
+    }
+    S.reports = (reports && reports.reports) || [];
+    if (S.reports.length) {
+      $("reportsw").hidden = false;
+      $("reportspop").innerHTML = `<span class="d">주차가 끝날 때 얼려 둔 보고서입니다.</span>`
+        + S.reports.map((r) => `<a class="ck" href="${esc(r.path)}">${esc(r.label)}<em> ${esc(r.frozen_at || "")}</em></a>`).join("")
+        + (S.frozen ? `<a class="ck" href="/">지금 보고서로 →</a>` : "");
+      $("reportsbtn").addEventListener("click", () => $("reportspop").classList.toggle("on"));
+      document.addEventListener("click", (e) => { if (!e.target.closest("#reportsw")) $("reportspop").classList.remove("on"); });
+    }
     S.list.init(qs);
-    S.setTab(qs.get("tab") || "data", true);
+    S.setTab(qs.get("tab") || "stats", true);
     S.writeUrl();
     window.addEventListener("popstate", () => {
       const q = new URLSearchParams(location.search);
