@@ -136,7 +136,7 @@ P4 [interpret]   The gap aligns with prior-update activation, suggesting the mec
 
 ---
 
-## 장르 6: 연구계획서 (Research Proposal — full) ★ NEW
+## 장르 6: 연구계획서 (Research Proposal — full)
 
 > 정의: 기금·학위·과제 신청용 한국어 연구계획서. 장르 1(5문단 제안서)의 확장판으로, **필요성 → 선행연구 → 목표·질문 → 방법 → 산출물 → 활용·기대효과 → 일정 → 예산** 절(節)을 갖는다. 한 절이 여러 단락일 수 있다.
 >

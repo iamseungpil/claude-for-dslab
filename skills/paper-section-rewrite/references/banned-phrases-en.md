@@ -149,6 +149,38 @@ Expression score: 1/3
 
 ---
 
+## 12. History-dependent wording (이력 독립성)
+
+A reader who sees only this text must understand every phrase. Zero allowed in body, captions and appendix.
+
+| Type | Patterns |
+|---|---|
+| Time markers | `earlier`, `previously`, `now\b`, `no longer`, `still (served|used)`, `originally`, `at the time` |
+| Version / working names | `corrected (design|batch|version)`, `legacy`, `old|new version`, `main study`, `follow-up` |
+| Process narration | `re-?run`, `re-?analysis`, `re-?audit`, `we (then|later)`, `additionally (ran|tested)` |
+| Editorial decisions | `the body (keeps|presents|retains)`, `we moved`, `is now reported`, `kept for transparency`, `released but not printed` |
+| Review history | `in this revision`, `as requested`, `reviewer`, `rebuttal`, `camera-ready` |
+
+Fix: name the thing by its content, never by when it happened. Keep a real distinction, rename it
+("corrected design" → "matched-loss design"). Not violations: plain pointers ("Table 3 of the
+body"), statistics terms ("FDR-corrected").
+
+```bash
+grep -n -i -E "earlier|previously|no longer|still served|originally|legacy|corrected (design|batch)|main study|follow-up|re-?(run|analysis|audit)|the body (keeps|presents)|in this revision|reviewer|rebuttal" file.tex
+```
+
+## 13. Negative-form sentences (긍정형 우선)
+
+Patterns: `does not|do not|did not`, `cannot`, `fails? to`, `neither`, `no longer`, `rather than`,
+`not X but Y`, `Not X:` as a sentence opener, `unreplicated`, `does not replicate`.
+
+Sort each hit before editing: (a) negative result → keep only the scope-bearing positive claim in
+the body, detail in the appendix; (b) contrast null that supports the claim → keep, phrase
+positively; (c) grammatical negation of a positive point → rewrite positively. Thresholds: zero in
+finding headlines and paragraph leads; at most one per paragraph outside contrast nulls. Always keep
+the scope qualifier ("on Gemma", "in the three API models") and check the appendix for
+contradiction.
+
 ## Korean register notes for KO/EN bilingual mode
 
 When mixing KO body with EN technical terms:

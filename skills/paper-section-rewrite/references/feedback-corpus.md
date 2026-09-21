@@ -96,7 +96,7 @@ Coach 페르소나는 위 5특징을 매 critic 출력에 반영해야 한다.
 
 ---
 
-## R6: 문장 단위 자연스러움 합평 (연구계획서 worked example) ★ NEW
+## R6: 문장 단위 자연스러움 합평 (연구계획서 worked example)
 
 R1~R5는 **문단 간** 합평이다. R6은 **문장 단위 자연스러움** 합평의 정식 few-shot — paper-section-rewrite Level 4(자연스러움·서술형·register 게이트)와 academic-writing-trainer Stage 4가 이 표를 모범으로 삼는다.
 
@@ -142,6 +142,58 @@ R1~R5는 **문단 간** 합평이다. R6은 **문장 단위 자연스러움** �
 5. **내용·사실·수치·인용은 한 글자도 안 건드린다** — 문체·호흡·표현만
 
 ---
+
+## R7: 남는 그림·유기성·이력 독립·긍정형 (논문 worked example) ★
+
+### R7-1 초록: 역할 하나씩, 그림 하나
+
+✗ 8문장 216단어. 둘째 문장이 용어 단서("…is a behavioural descriptor…; the analysis … does not
+claim circuit-level mechanism")이고, 48단어 문장에 em-dash와 "although"가 겹친다. 가장 강한
+결과가 맨 끝에 덧붙는다. 정보는 정확하지만 읽고 나서 남는 그림이 없다.
+
+✓ 5~6문장 150단어 안팎. 목적 → 접근 → 행동 결과 → 두 통로의 차이 → 내부 결과(읽기와 쓰기를
+한 문장에) → 의미. 읽고 나면 "자율이 위험을 키우고, 그 위험은 내부에서 읽히고 쓸 수도 있다"가
+남는다.
+
+### R7-2 건너뜀: 빠진 고리
+
+✗ "Pairwise directions look nearly orthogonal … What does transfer is a weak shared subspace."
+✓ "Each task's risk direction is mostly its own. … A small common component nonetheless sits under
+that task-specific bulk. It is too small to tilt the cosines, but pooling two tasks isolates it."
+
+### R7-3 지리멸렬: 같은 유보 세 번
+
+✗ 한 문단에 "not strong enough to claim…", "weak monitoring signals rather than accurate
+predictors", "not that a few hundred features predict any single decision".
+✓ 평가어를 지우고 수치와 통과한 통제를 한 번 적는다. 범위는 숫자가 말한다.
+
+### R7-4 개조식: 단문 게이트를 기계적으로 채운 실패
+
+✗ "편집은 한 층이 아니라 밴드에 가한다. Gemma는 L16–21, LLaMA는 L14–19다. 단일 층으로는 아무것도
+움직이지 않았기 때문이다." (세 문장, 역할은 하나)
+✓ "한 층만 고쳐서는 베팅이 움직이지 않았으므로 연속한 여섯 층(Gemma L16–21, LLaMA L14–19)을 함께
+편집한다."
+
+### R7-5 부정형 주장 → 긍정형 주장
+
+✗ "Finding 5: Role framing, cap size and inexperience do not explain the bet-size effect." 본문도
+"Not role framing: … Not inexperience: …"로 이어져 실제 주장이 가려진다.
+✓ "Finding 5: The effect comes from choice that can be revised every round." 본문은 조건 사다리를
+한 문장으로 설명하고, 결과와 해석을 쓴다.
+
+### R7-6 부정 결과 → 범위를 담은 긍정문
+
+✗ "… This gain does not replicate on LLaMA."
+✓ "On Gemma, grafting the goal module steepens the dose slope …" (LLaMA 결과는 부록). 범위 한정어
+"On Gemma"를 지우면 과장이 된다.
+
+### R7-7 작업 이름이 설계 이름으로 굳은 경우
+
+✗ "The corrected design (open-weight models) gives all three risky options the same expected loss;
+the four closed-model legacy runs use a slightly larger mid-variance loss."
+✓ "The matched-loss design (open-weight models) gives all three risky options the same expected
+loss; in the closed-model runs the mid-variance option loses slightly more." 구분은 남기고 이름만
+내용으로 바꾼다.
 
 ## 영어 합평 톤 가이드 (참고)
 
