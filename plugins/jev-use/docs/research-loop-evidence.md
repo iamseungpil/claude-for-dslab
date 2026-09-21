@@ -49,6 +49,22 @@ returned `escalate: "unsure"` — estimated confidence < .4.
 formula in front of it and cannot know which quantity the gate was meant to
 compute. Budget an LLM hand-recomputation for every gate.
 
+## First real run of the full loop, 2026-09-21
+
+Running all ten steps on a live experiment for the first time produced **1 implementation
+finding** from Jev (a stop rule declared in the design but never wired — `unimplemented`),
+**1 intent finding the human found, not Jev** (an approved 200-problem pilot scale was
+absent from the intent doc while the code used 388; once the number was written into the
+intent and a `pilot_scale` property added, the job-state judgment came back **.04** and
+caught it), and **4 `runtime_error`s found by reading logs** (a missing config key, an FP8
+warmup step, a reward loop that never yielded, a monkeypatch against a moved symbol) —
+**none of the four visible to Jev**, which never sees a log. Two Jev verdicts were **false
+priors**: `unneeded` **.89** on a function that was in fact called, and `fix_correct`
+**.12** when the `plan` subcommand was fed a description of the gap instead of a plan for
+closing it. The lessons are wired into the skill as the Step 0 approval ledger, the
+`runconfig` state (Step 8h), and the «Order of operations» rule that the smoke run precedes
+the audit.
+
 ## Blind classes (extend per repo)
 
 - **sign flips** — Δ +.06, below the noise floor. Treat sign correctness as a

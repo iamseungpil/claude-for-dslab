@@ -75,19 +75,24 @@ and a typed reason. Tools, verdict shape, escalation contract, CLI:
 
 `skills/jev-research-loop` runs a research idea from intent to judged results, and can be
 entered at any step (`--step 8` = the implementation audit alone). Ten steps: **0** correct
-the intent doc · **1** analyze + survey subagents, then the main agent writes the design doc
-· **2** `research_audit.py design` formally checks it (gates numeric, stop rules, novelty,
-no closed-axis re-buy) · **3** fail → rewrite the design · **4** `task-planner-analyzer`
-writes the plan · **5** `research_audit.py plan` judges it (`fix_correct` /
-`fix_incomplete` / `fix_harm` / `budget_ok`) · **6** fail → replan · **7**
-`modular-code-architect` subagents implement, one per module · **8** the implementation
-audit: per-property `noul` questions with `criteria`, batched per module into one
-`jev-use judge` call (state by reference, never in the conversation), narrowing to
-functions, a mandatory direct read, and a line-budget check · **9** route by cause · **10**
-submit to the queue, then `research_audit.py results` judges the metrics against the
-design's gates. Every finding gets a cause (`intent_error` / `design_error` / `impl_error` /
-`measurement_error` / `runtime_error`) and a confidence; verdicts are priors, so the direct
-read is mandatory. Loop state lives in `.jev-loop/STATE.json`, max 3 rounds per inner loop.
+the intent doc and check the approval ledger — every scale the human approved must appear
+verbatim in it, because Jev cannot see a number that is in no document · **1** analyze +
+survey subagents, then the main agent writes the design doc · **2** `research_audit.py
+design` formally checks it (gates numeric, stop rules, novelty, no closed-axis re-buy) ·
+**3** fail → rewrite the design · **4** `task-planner-analyzer` writes the plan · **5**
+`research_audit.py plan` judges it (`fix_correct` / `fix_incomplete` / `fix_harm` /
+`budget_ok`) · **6** fail → replan · **7** `modular-code-architect` subagents implement, one
+per module · **8** the implementation audit: per-property `noul` questions with `criteria`,
+batched per module into one `jev-use judge` call (state by reference, never in the
+conversation), narrowing to functions, a mandatory direct read, and a line-budget check —
+run after the smallest real execution, so `runtime_error`s are already fixed from rc/log
+signatures · **9** route by cause · **10** `research_audit.py runconfig` judges the exact
+job JSON, pool summary and launcher defaults before submission, then `research_audit.py
+results` judges the structured metric summary against the design's gates. Every finding gets
+a cause (`intent_error` / `design_error` / `impl_error` / `measurement_error` /
+`runtime_error`) and a confidence; verdicts are priors, so the direct read is mandatory.
+Loop state lives in `.jev-loop/STATE.json` (`--record` appends each judgment to its
+`history[]`), max 3 rounds per inner loop.
 Measured detection and blind spots: [docs/research-loop-evidence.md](docs/research-loop-evidence.md).
 
 ## Small enough to read
@@ -103,7 +108,7 @@ Measured detection and blind spots: [docs/research-loop-evidence.md](docs/resear
 | [src/cli.ts](src/cli.ts) | `install`, `serve`, `hook gate`, `doctor` |
 | [skills/jev-use/SKILL.md](skills/jev-use/SKILL.md) | The routing rules the agent follows |
 | [skills/jev-research-loop/SKILL.md](skills/jev-research-loop/SKILL.md) | The 10-step research loop, incl. the intent-conformance audit |
-| [scripts/research_audit.py](scripts/research_audit.py) | Its design/plan/module/function/results judge driver |
+| [scripts/research_audit.py](scripts/research_audit.py) | Its design/plan/module/function/runconfig/results judge driver |
 
 ## Development
 

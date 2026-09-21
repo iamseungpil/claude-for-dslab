@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 """Audit research code against a written intent, with Jev as the prior-maker.
 
-Each subcommand batches all questions about one state into ONE `jev-use judge`
-call. The state (intent + source) never enters the conversation -- it goes to the
-subprocess on stdin and to disk under --out. Verdicts are priors, not decisions.
-Key comes from the environment only (TYPESAFE_API_KEY / OPENROUTER_API_KEY /
-AI_GATEWAY_API_KEY, or JEV_BACKEND=mock). See --help.
+Each subcommand batches all questions about one state into ONE `jev-use judge` call.
+The state (intent + source) never enters the conversation -- it goes to the subprocess
+on stdin and to disk under --out. Verdicts are priors, not decisions. Key comes from the
+environment only (TYPESAFE_API_KEY / OPENROUTER_API_KEY / AI_GATEWAY_API_KEY, or
+JEV_BACKEND=mock). See --help.
 """
 from __future__ import annotations
 
 import argparse
+import datetime
 import json
 import os
 import re
@@ -81,13 +82,11 @@ def judge(state: str, questions: list[dict], cmd: str, threshold: float | None) 
     return json.loads(out)
 
 
-def cell(v: dict | None) -> str:
-    a = (v or {}).get("answer")
-    return f"{a:.2f}" if isinstance(a, (int, float)) else str(a)[:7] if v else "-"
-
-
 def table(rows: list[tuple[str, dict]], qids: list[str]) -> None:
     """Raw jev values only. The cause/confidence findings table is the LLM's to write."""
+    def cell(v: dict | None) -> str:
+        x = (v or {}).get("answer")
+        return f"{x:.2f}" if isinstance(x, (int, float)) else str(x)[:7] if v else "-"
     w = max([12] + [len(r[0]) for r in rows])
     head = f"{'target':<{w}} " + " ".join(f"{q[:7]:>7s}" for q in qids) + "   esc    ms"
     print(head + "\n" + "-" * len(head))
@@ -119,6 +118,14 @@ def save(out: Path, name: str, res: dict) -> None:
     (out / f"{name}.json").write_text(json.dumps(res, indent=2))
 
 
+def emit(a, tag: str, name: str, state: str, qs: list[dict]) -> list:
+    """One batched call on one state: judge, persist the verdict JSON, print the raw table."""
+    res = judge(state, qs, a.jev_cmd, a.threshold)
+    save(Path(a.out), tag, res)
+    table([(name, res)], [q["id"] for q in qs])
+    return [(name, res)]
+
+
 def split_functions(src: str) -> list[tuple[str, str]]:
     """(name, body) per top-level def/class, decorators merged onto what follows."""
     lines = src.splitlines()
@@ -142,12 +149,6 @@ def split_functions(src: str) -> list[tuple[str, str]]:
     return chunks
 
 
-def preamble(src: str) -> str:
-    lines = src.splitlines()
-    cut = next((i for i, ln in enumerate(lines) if re.match(r"^(def |class |@)", ln)), len(lines))
-    return "\n".join(lines[:cut])
-
-
 def cmd_modules(a) -> list:
     qs = questions_for(a.properties)
     rows = []
@@ -162,8 +163,10 @@ def cmd_modules(a) -> list:
 
 def cmd_functions(a) -> list:
     qs = [q for q in FIXED if q["id"] in ("bug", "unneeded")]
-    src = Path(a.file).read_text()
-    pre = preamble(src)
+    src = Path(a.file).read_text()          # module preamble = everything above the first def
+    ln = src.splitlines()
+    pre = "\n".join(ln[:next((i for i, x in enumerate(ln)
+                              if re.match(r"^(def |class |@)", x)), len(ln))])
     rows = []
     for name, body in split_functions(src):
         state = head(Path(a.intent), f"{Path(a.file).name}::{name}", pre + "\n\n" + body)
@@ -189,12 +192,8 @@ PLAN_Q = [
 
 def cmd_plan(a) -> list:
     p = Path(a.code_file)
-    state = head(Path(a.intent), p.name, p.read_text()) + \
-        f"\n# PROPOSED CHANGE (not yet applied)\n{a.plan_text}\n"
-    res = judge(state, PLAN_Q, a.jev_cmd, a.threshold)
-    save(Path(a.out), f"plan.{p.stem}", res)
-    table([("plan", res)], [q["id"] for q in PLAN_Q])
-    return [("plan", res)]
+    return emit(a, f"plan.{p.stem}", "plan", head(Path(a.intent), p.name, p.read_text())
+                + f"\n# PROPOSED CHANGE (not yet applied)\n{a.plan_text}\n", PLAN_Q)
 
 
 def cmd_intent_delta(a) -> list:
@@ -243,6 +242,52 @@ def cmd_plant(a) -> list:
     return rows
 
 
+def cmd_runconfig(a) -> list:
+    """The run as it will actually be submitted: job command + env, pool summary, launcher
+    defaults. Catches a scale the intent fixes but the submitted config does not honour."""
+    job = json.loads(Path(a.job).read_text())
+    c = job.get("command") or job.get("cmd") or ""
+    env = job.get("env") or job.get("environment") or {}
+    body = [f"# JOB AS SUBMITTED: {Path(a.job).name}\nCOMMAND:\n"
+            f"{' '.join(c) if isinstance(c, list) else c}\nENV ASSIGNMENTS:\n"
+            + "".join(f"{k}={v}\n" for k, v in sorted(env.items()))
+            + "".join(f"{k}: {json.dumps(v)[:400]}\n" for k, v in sorted(job.items())
+                      if k not in ("command", "cmd", "env", "environment"))]
+    if a.pool_summary:
+        body.append(f"# POOL SUMMARY: {Path(a.pool_summary).name}\n"
+                    f"{Path(a.pool_summary).read_text()[:4000]}\n")
+    if a.launcher:  # default values the launcher supplies when the job omits a knob
+        body.append(f"# LAUNCHER DEFAULT VALUES: {Path(a.launcher).name}\n" + "\n".join(
+            ln.strip() for ln in Path(a.launcher).read_text().splitlines()
+            if re.search(r"\$\{\w+:-[^}]*\}", ln)) + "\n")
+    rows = emit(a, f"runconfig.{Path(a.job).stem}", Path(a.job).name,
+                f"# WRITTEN INTENT (the contract this run must honour)\n"
+                f"{Path(a.intent).read_text()}\n{CLOSED}\n" + "\n".join(body),
+                questions_for(a.properties))
+    print("\nrun this on the EXACT job JSON before submission: a scale the intent fixes but"
+          " the config does not honour shows up here, not in the module audit.")
+    return rows
+
+
+def record(a, rows: list) -> None:
+    """Append one audit-state line to <out>/STATE.json.history; never delete entries."""
+    p = Path(a.out) / "STATE.json"
+    st = json.loads(p.read_text()) if p.exists() else {}
+    vals = [(v["id"], v["answer"]) for _, r in rows for v in r.get("verdicts", [])
+            if isinstance(v.get("answer"), (int, float))]
+    st.setdefault("history", []).append({
+        "min_property": min([x[1] for x in vals
+                             if x[0] not in ("bug", "gold_leak", "unneeded", "quality")],
+                            default=None),
+        "step": st.get("step"), "subcommand": a.cmd, "targets": [n for n, _ in rows],
+        "max_bug": max([x[1] for x in vals if x[0] == "bug"], default=None),
+        "escalated": sum(1 for _, r in rows for v in r.get("verdicts", []) if v.get("escalate")),
+        "timestamp": datetime.datetime.now().isoformat(timespec="seconds")})
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps(st, indent=2))
+    print(f"recorded: {p}  (history entries: {len(st['history'])})")
+
+
 def doc_state(intent: Path, parts: list[tuple[str, str]]) -> str:
     """State for document-level judging: intent (+ closed axes) then each named document."""
     out = [f"# WRITTEN INTENT (the contract this design must serve)\n{intent.read_text()}\n",
@@ -253,13 +298,12 @@ def doc_state(intent: Path, parts: list[tuple[str, str]]) -> str:
 
 
 DESIGN_Q = [
-    noul("intent_consistent", "Does this design serve the written intent, rather than a"
-         " different question the intent does not ask?",
-         "every claim it tests is one the intent asks for",
+    noul("intent_consistent", "Does this design serve the written intent, rather than a different"
+         " question the intent does not ask?", "every claim it tests is one the intent asks for",
          "it tests something the intent does not ask for"),
     noul("no_closed_axis_rebuy", "Does this design stay off the closed axes -- is it free of"
-         " re-buying a conclusion already falsified?",
-         "no closed axis is re-bought", "it re-buys an axis listed as closed"),
+         " re-buying a conclusion already falsified?", "no closed axis is re-bought",
+         "it re-buys an axis listed as closed"),
     noul("gates_numeric", "Are the gates stated as numbers with a comparison, so the outcome"
          " can be decided without further judgment?",
          "each gate names a quantity, a threshold and a direction",
@@ -267,9 +311,8 @@ DESIGN_Q = [
     noul("stop_rules_present", "Does the design name stop rules -- conditions under which the"
          " arm is abandoned before the planned end?",
          "at least one concrete stop condition is stated", "no stop condition is stated"),
-    noul("novelty_stated", "Does the design say what is new relative to the survey of prior"
-         " work it cites?",
-         "the delta against prior work is stated", "novelty is asserted or absent"),
+    noul("novelty_stated", "Does the design say what is new relative to the survey of prior work"
+         " it cites?", "the delta against prior work is stated", "novelty is asserted or absent"),
     noul("mechanism_verifiable", "Is the proposed mechanism stated concretely enough that code"
          " could be checked against it line by line?",
          "the mechanism names the signal, where it is applied and how it is credited",
@@ -283,15 +326,13 @@ DESIGN_SCORE = {"id": "design_quality", "type": "score",
 
 
 def cmd_design(a) -> list:
-    qs = DESIGN_Q + [DESIGN_SCORE]
     doc = Path(a.design)
-    res = judge(doc_state(Path(a.intent), [(f"DESIGN DOCUMENT: {doc.name}", doc.read_text())]),
-                qs, a.jev_cmd, a.threshold)
-    save(Path(a.out), f"design.{doc.stem}", res)
-    table([("design", res)], [q["id"] for q in qs])
+    rows = emit(a, f"design.{doc.stem}", "design",
+                doc_state(Path(a.intent), [(f"DESIGN DOCUMENT: {doc.name}", doc.read_text())]),
+                DESIGN_Q + [DESIGN_SCORE])
     print("\nformal check only: any property < .5 or design_quality < 3.5 sends you back to"
           " Step 1c. Design QUALITY stays with the human.")
-    return [("design", res)]
+    return rows
 
 
 RESULT_Q = [
@@ -313,15 +354,13 @@ CONTINUE_Q = {"id": "continue", "type": "choice",
 
 
 def cmd_results(a) -> list:
-    qs = RESULT_Q + [CONTINUE_Q]
     d, r = Path(a.design), Path(a.results)
-    state = doc_state(Path(a.intent), [(f"DESIGN DOCUMENT: {d.name}", d.read_text()),
-                                       (f"MEASURED RESULTS: {r.name}", r.read_text())])
-    res = judge(state, qs, a.jev_cmd, a.threshold)
-    save(Path(a.out), f"results.{d.stem}", res)
-    table([("results", res)], [q["id"] for q in qs])
+    rows = emit(a, f"results.{d.stem}", "results",
+                doc_state(Path(a.intent), [(f"DESIGN DOCUMENT: {d.name}", d.read_text()),
+                                           (f"MEASURED RESULTS: {r.name}", r.read_text())]),
+                RESULT_Q + [CONTINUE_Q])
     print("\nstop_rule_triggered is high=BAD. A problem on any row sends you back to Step 1.")
-    return [("results", res)]
+    return rows
 
 
 def main() -> None:
@@ -333,25 +372,23 @@ def main() -> None:
     ap.add_argument("--threshold", type=float)
     ap.add_argument("--closed-axes", help="text file of axes already falsified; goes into"
                                           " every state so re-buying one shows as design_error")
+    ap.add_argument("--record", action="store_true",
+                    help="append {step, subcommand, targets, min_property, max_bug, escalated,"
+                         " timestamp} to <out>/STATE.json.history (existing entries are kept)")
     sub = ap.add_subparsers(dest="cmd", required=True)
     m = sub.add_parser("modules", help="one batched call per file")
-    m.add_argument("--files", nargs="+", required=True)
-    m.set_defaults(fn=cmd_modules)
+    m.add_argument("--files", nargs="+", required=True); m.set_defaults(fn=cmd_modules)
     f = sub.add_parser("functions", help="re-ask bug/unneeded per top-level function")
-    f.add_argument("--file", required=True)
-    f.set_defaults(fn=cmd_functions)
+    f.add_argument("--file", required=True); f.set_defaults(fn=cmd_functions)
     pl = sub.add_parser("plan", help="judge a proposed fix before writing it")
     pl.add_argument("--code-file", required=True)
-    pl.add_argument("--plan-text", required=True)
-    pl.set_defaults(fn=cmd_plan)
+    pl.add_argument("--plan-text", required=True); pl.set_defaults(fn=cmd_plan)
     pt = sub.add_parser("plant", help="calibrate: original vs planted-defect copies")
-    pt.add_argument("--file", required=True)
+    pt.add_argument("--file", required=True); pt.set_defaults(fn=cmd_plant)
     pt.add_argument("--patch", action="append", required=True, metavar="OLD=>NEW")
-    pt.set_defaults(fn=cmd_plant)
     idl = sub.add_parser("intent-delta", help="same code, two intent docs: intent_error probe")
     idl.add_argument("--intent-b", required=True, help="the second (e.g. corrected) intent doc")
-    idl.add_argument("--file", required=True)
-    idl.set_defaults(fn=cmd_intent_delta)
+    idl.add_argument("--file", required=True); idl.set_defaults(fn=cmd_intent_delta)
     dg = sub.add_parser("design", help="formal check of a design doc before planning")
     dg.add_argument("--design", required=True, help="path to .jev-loop/design.md")
     dg.set_defaults(fn=cmd_design)
@@ -359,6 +396,12 @@ def main() -> None:
     rs.add_argument("--design", required=True, help="path to .jev-loop/design.md")
     rs.add_argument("--results", required=True, help="path to .jev-loop/results.md")
     rs.set_defaults(fn=cmd_results)
+    rc = sub.add_parser("runconfig", help="judge the run as submitted: job JSON + pool"
+                                         " summary + launcher defaults (Step 8h)")
+    rc.add_argument("--job", required=True, help="path to the exact job JSON to be submitted")
+    rc.add_argument("--pool-summary", help="path to the pool/dataset summary JSON")
+    rc.add_argument("--launcher", help="launcher script; its ${VAR:-default} lines are folded in")
+    rc.set_defaults(fn=cmd_runconfig)
     a = ap.parse_args()
     preflight()
     if a.closed_axes:
@@ -366,6 +409,8 @@ def main() -> None:
         CLOSED = ("\n# CLOSED AXES (already falsified -- re-buying one is a design error)\n"
                   + Path(a.closed_axes).read_text() + "\n")
     rows = a.fn(a)
+    if a.record:
+        record(a, rows)
     if any(v.get("escalate") for _, r in rows for v in r.get("verdicts", [])):
         print("\nnote: escalated verdicts are priors only -- they order your reading list,"
               " they never close a question.")

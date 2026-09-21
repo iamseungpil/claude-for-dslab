@@ -10,8 +10,9 @@ the analysis, the survey, the planning and the implementation. The main agent do
 design, the direct reads, the table reading and the queue submission. Jev answers typed
 questions about one state in ~700 ms per batched call and every verdict is a prior that
 orders your reading list. Loop state lives in `<repo>/.jev-loop/STATE.json`
-(`{step, round, last_verdict, history[]}`) so the loop resumes after a context loss —
-write it after every step. **Max 3 rounds per inner loop** (1c↔3, 4↔6, 7↔9), then stop
+(`{step, round, last_verdict, history[]}`) so the loop resumes after a context loss — you
+write the `step`/`round` transitions by hand, and `research_audit.py --record` appends the
+judgment rows to `history[]` (see Step 8h). **Max 3 rounds per inner loop** (1c↔3, 4↔6, 7↔9), then stop
 and ask the human. Every finding carries **two axes**: `confidence` (확정 / 미확인 /
 잡음) and `cause`. Never report one without the other.
 
@@ -32,6 +33,25 @@ and ask the human. Every finding carries **two axes**: `confidence` (확정 / �
 the Step 1c design doc**, not the code; `runtime_error` → **Step 10** launcher/queue;
 `unclassified` → run `next_test` first, then classify.
 
+## Order of operations
+
+Auditing code that has never run wastes the audit on defects a single smoke run names for
+free.
+
+- **(a) Smoke before audit.** After Step 7, run the **smallest real execution** first — one
+  step, smallest pool, shortest budget. Fix every `runtime_error` directly by reading the
+  **rc and log signatures** (missing config key, unsupported warmup, a loop that never
+  yields a reward, a monkeypatch against a moved symbol). These are **not Jev's**: it never
+  sees a log, and routing them to it costs a call and returns a prior about nothing.
+- **(b) Audit once a metric exists.** Step 8 runs **in full only after the run reaches its
+  first real metric line**. Before that, an "unimplemented" verdict cannot be told apart
+  from a path execution has not entered yet.
+- **(c) Twice in the same layer ⇒ ask Jev.** A runtime failure that **repeats in the same
+  layer twice** is the only case where a failure goes to Jev: send a **failure signature**
+  (rc, last exception line, failing frame file — never the log) as a `choice` over the cause
+  axis, to re-classify. Two failures in one layer usually mean the layer is wrong, not the
+  environment: `design_error` or `impl_error` wearing a `runtime_error` mask.
+
 ## Step 0 — INTENT (main agent)
 
 Require a **corrected intent document** as a path. If the user pasted prose, first check
@@ -39,6 +59,15 @@ it against the project's ledger/results and write or update the doc from what th
 actually say. Never feed a statement with known factual errors: a wrong intent sentence
 dropped the alignment verdict **.65 → .52 on unchanged code**. A wrong document yields a
 confident wrong audit — that is `intent_error`.
+
+**Approval ledger (before judging anything).** List **every number and scale the human
+approved in conversation** — pool size, K, steps, seeds, level filter, budget — and check
+that each appears **verbatim in the intent doc**. A missing one is an `intent_error` owned
+by **the agent, not Jev**: *Jev cannot see a number that is in no document.* In the
+2026-09-21 run an approved **200-problem pilot** was absent from the intent doc while the
+code used **388**; once the number was written into the intent and a `pilot_scale` property
+added, the job-state judgment came back **.04** and caught it. Approved-but-unwritten
+numbers are the one defect class no amount of property tuning reaches.
 
 ## Step 1 — ANALYZE + SURVEY + DESIGN
 
@@ -120,7 +149,10 @@ direction) · post-centered token-localized credit (not summed into a sequence s
 broadcast) · no injected meta content in trained arms · no gold in the trigger or the
 selection rule · single source of truth for a parser/grader · undefined terms excluded
 rather than zero-filled. Add at least one **metric definition** property (does this gate
-compute the quantity the intent names?) — the only handle on `measurement_error`. Phrase
+compute the quantity the intent names?) — the only handle on `measurement_error` — and at
+least one **run-scale** property in the `pilot_scale` mould, pinning the scale the intent
+fixes (*"does the submitted run use the pilot pool size / K / step count the intent
+names?"*), which is what Step 8h below judges. Phrase
 properties so **high = good**; the script adds three fixed `noul` questions where
 **high = bad** (`gold_leak`, `unneeded`, `bug`) plus `quality`, a 5-level `score`. A
 property must be verifiable *from the code*; "is this good research?" is `open_ended`.
@@ -194,9 +226,28 @@ open 확정 row may pass to Step 10.
 
 ## Step 10 — QUEUE + RESULTS JUDGE
 
-The **main agent** submits the job JSON to the project's queue (never a subagent; never a
-`git push`). On each completion trigger, spawn `experiment-interpreter` for a
-citation-carrying metrics summary → `.jev-loop/results.md`, then:
+**8h. RUN CONFIG (script → Jev, before submission).** The audited code is not the run. Judge
+the **exact job JSON you are about to submit** — its command string and env assignments — plus
+the pool summary and the launcher's `${VAR:-default}` lines, against the same properties:
+
+```bash
+python3 scripts/research_audit.py --intent docs/INTENT.md --properties properties.json \
+  --out ./.jev-loop/ --record runconfig --job .jev-loop/job.json \
+  --pool-summary .jev-loop/pool_summary.json --launcher mc/run.sh
+```
+
+A scale the intent fixes but the config does not honour shows up here and nowhere else — the
+module audit reads code, not the knob the launcher defaulted. Read it with the Step 8c
+thresholds. **`--record` is how STATE.json gets judgment rows**: every subcommand appends
+`{step, subcommand, targets, min_property, max_bug, escalated, timestamp}` to
+`STATE.json.history` and never deletes an entry. The agent hand-edits STATE.json **only for
+step and round transitions** — never to write a judgment.
+
+Then the **main agent** submits the job JSON to the project's queue (never a subagent; never
+a `git push`). On each completion trigger, spawn `experiment-interpreter` to turn the run's
+logs into a **structured metric summary — a table of quantity, step, value, `file:line`** →
+`.jev-loop/results.md`. Raw logs never go into that file and never reach Jev; the summary is
+what is judged:
 
 ```bash
 python3 scripts/research_audit.py --intent docs/INTENT.md --out ./.jev-loop/ \
@@ -219,7 +270,11 @@ already in hand. Steps skipped this way are recorded in `STATE.json.history`.
 
 Runtime numbers, training curves, reproduction gates, tensor shapes, anything not in the
 state, and any framework code you only call. Those stay human gates — no audit result
-substitutes for running the gate. Cost/latency ≈ 700 ms per batched call at
+substitutes for running the gate. **Raw logs are never sent**: the only runtime material that
+reaches Jev is the structured metric summary of Step 10 and, per «Order of operations» (c), a
+failure signature for a failure that repeated twice in the same layer. And a number the human
+approved but no document records is invisible by construction — hence the Step 0 approval
+ledger. Cost/latency ≈ 700 ms per batched call at
 judgment-model rates; a 2-module audit with 11 questions is two calls. The key is read
 from the environment only; the script never prints, logs or writes it, never echoes the
 state, and exits non-zero on node < 20 or a missing key with a one-line fix hint.
