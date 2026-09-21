@@ -311,6 +311,18 @@ def test_plan_coverage_gate() -> None:
               "plan_coverage is asked once, against the plan and the file list")
 
 
+def test_verdict_title_and_labels() -> None:
+    """판정 줄의 제목은 '<단계> 판정: <문서>' 이고, 숫자 항목에는 한국어 이름표가 붙는다."""
+    import research_audit as ra
+    check(ra.verdict_title("design", ["design.design_v4"]) == "설계 판정: design_v4",
+          "a design verdict says 설계 판정 with the document stem, not 'design design'")
+    check(ra.verdict_title("results", ["results.round5"]) == "결과 판정: round5",
+          "every judged step has a Korean step name")
+    for qid, ko in (("intent_consistent", "의도 부합"), ("no_leakage", "누출"),
+                    ("design_quality", "설계 품질")):
+        check(ra.NUMBERS_KO.get(qid) == ko, f"{qid} has the Korean label {ko}")
+
+
 def test_emit_integration() -> None:
     print("--emit writes a verdict line and patches loop.json")
     with tempfile.TemporaryDirectory() as t:
@@ -346,7 +358,7 @@ def test_emit_integration() -> None:
 def main() -> None:
     for fn in (test_scope, test_record_summary, test_unreachable, test_agent_round_trip,
                test_design_questions, test_impl_questions, test_audit_extras,
-               test_plan_coverage_gate, test_emit_integration):
+               test_plan_coverage_gate, test_verdict_title_and_labels, test_emit_integration):
         fn()
     print(f"\n{'FAILED: ' + '; '.join(FAILS) if FAILS else 'all checks passed'}")
     raise SystemExit(1 if FAILS else 0)

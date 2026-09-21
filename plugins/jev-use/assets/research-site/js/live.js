@@ -162,9 +162,16 @@
     const tiles = `<div class="kinds"><button class="kt${kind ? "" : " on"}" data-kind="">전체<b>${num(feed.length)}</b></button>`
       + Object.entries(kinds).map(([k, n]) => `<button class="kt${kind === k ? " on" : ""}" data-kind="${esc(k)}">${esc(ko(k))}<b>${num(n)}</b></button>`).join("") + `</div>`;
     const items = shown.map((f) => {
-      const nums = Object.entries(f.numbers || {}).map(([k, v]) => `${esc(k)} ${esc(String(v))}`).join(" · ");
+      const N = Object.entries(f.numbers || {});
+      // 판정 줄은 항목이 열 개가 넘는다 — 기본은 '몇 개가 기준에 못 미쳤나'만 적고 숫자는 접는다.
+      const fold = f.kind === "verdict" && N.length > 3;
+      const under = N.filter(([, v]) => typeof v === "number" && v < 0.7).length;
+      const nums = fold ? `${N.length}개 항목 중 ${under}개 기준 미달`
+        : N.map(([k, v]) => `${esc(k)} ${esc(String(v))}`).join(" · ");
       const links = (f.links || []).map((l) => `<a href="${esc(l.href)}">${esc(l.label)}</a>`).join(" · ");
-      const body = f.body ? `<details><summary>자세히</summary><p class="body">${md(f.body)}</p></details>` : "";
+      const detail = (f.body ? `<p class="body">${md(f.body)}</p>` : "")
+        + (fold ? `<p class="nums">${N.map(([k, v]) => `${esc(k)} ${esc(String(v))}`).join(" · ")}</p>` : "");
+      const body = detail ? `<details><summary>자세히</summary>${detail}</details>` : "";
       return `<li><div class="ft"><b>${md(f.title || "")}</b>${pill(f.status)}<span class="tag">${esc(ko(f.kind))}</span>`
         + `<span class="meta">${esc(when(f.ts))}${f.author ? " · " + esc(f.author) : ""}</span></div>`
         + (f.plain ? `<p class="plain">${md(f.plain)}</p>` : "") + body

@@ -316,6 +316,27 @@ def save(out: Path, name: str, res: dict) -> None:
     (out / f"{name}.json").write_text(json.dumps(res, indent=2))
 
 
+# 판정 줄이 사람 말로 읽히도록: 단계 이름과 항목 이름표. 숫자 id 는 접힌 자리에만 남는다.
+STEP_KO = {"design": "설계", "plan": "계획", "impl": "구현", "runconfig": "실행 설정",
+           "results": "결과", "record": "기록"}
+NUMBERS_KO = {
+    "intent_consistent": "의도 부합", "no_closed_axis_rebuy": "닫힌 축 회피",
+    "gates_numeric": "수치 관문", "stop_rules_present": "중단 규칙",
+    "novelty_stated": "새로움 서술", "mechanism_verifiable": "검증 가능성",
+    "novelty_vs_named_prior": "선행 연구 대비 새로움", "expected_effect_grounded": "기대 효과 근거",
+    "cost_benefit_stated": "비용 대비 효용", "cheapest_first": "싼 실험 먼저",
+    "design_quality": "설계 품질", "no_unimplemented": "미구현 없음", "no_duplication": "중복",
+    "clean_code": "클린 코드", "failure_reproduced": "실패 재현", "no_leakage": "누출",
+    "no_unnecessary": "불필요", "no_bugs": "버그", "quality": "품질",
+}
+
+
+def verdict_title(cmd: str, names) -> str:
+    """'design design' 같은 제목 대신 '설계 판정: <문서 이름>'."""
+    stems = ", ".join(str(n).split(".")[-1] for n in names if n)
+    return f"{STEP_KO.get(cmd, cmd)} 판정" + (f": {stems}" if stems else "")
+
+
 def emit(a, tag: str, name: str, state: str, qs: list[dict]) -> list:
     """One batched call on one state: judge, persist the verdict JSON, print the raw table."""
     res = judge(state, qs, a.jev_cmd, a.threshold, name, tag)
@@ -548,10 +569,12 @@ def live_verdict(a, rows: list) -> None:
     plain = next((r.get("plain") for _, r in rows if r.get("plain")), None) or (
         f"심판이 {len(vs)}가지를 확인했고 {len(bad)}가지가 기준에 못 미쳤어요. "
         + ("그래서 앞 단계로 돌아가요." if bad else "그래서 다음 단계로 가요."))
-    live.feed(EMIT, "verdict", a.cmd, f"{a.cmd} {', '.join(n for n, _ in rows)}", plain,
-              body="\n".join(f"{k}={x:.2f} — {by[k].get('reason') or by[k].get('evidence') or ''}"
+    live.feed(EMIT, "verdict", a.cmd, verdict_title(a.cmd, (n for n, _ in rows)), plain,
+              body="\n".join(f"{NUMBERS_KO.get(k, k)}({k})={x:.2f} — "
+                             f"{by[k].get('reason') or by[k].get('evidence') or ''}"
                              for k, x in low),
-              numbers=nums, author="research_audit")
+              numbers={NUMBERS_KO.get(k, k): v for k, v in nums.items()},
+              author="research_audit")
     live.loop(EMIT, step=getattr(a, "step", None) or "", status="back" if bad else "forward",
               scores={v["id"]: v["answer"] for v in vs if vkind(v) == "score"},
               design=rows[0][0] if a.cmd == "design" else "")
