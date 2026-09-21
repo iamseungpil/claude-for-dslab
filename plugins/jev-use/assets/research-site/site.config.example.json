@@ -1,0 +1,54 @@
+{
+  "_": "연구판 설정의 최소 예시. 실제 연구에 쓰는 값은 저장소 루트의 site.config.json 을 보라.",
+  "title": "우리 연구판",
+  "out": "site/data",
+  "links": [{"label": "옛 뷰어", "href": "archive/index-old.html"}],
+
+  "_weeks": "주차 = 날짜 범위. legacy 는 옛 사이트가 쓰던 라벨을 작게 같이 보여 주기 위한 것이다.",
+  "weeks": [
+    {"id": "1", "label": "1주차", "from": "2026-09-01", "to": "2026-09-07", "range": "9/1–9/7", "legacy": "옛 라벨: 없음"},
+    {"id": "2", "label": "2주차", "from": "2026-09-08", "to": "2026-09-14", "range": "9/8–9/14", "legacy": "옛 라벨: 1주차"}
+  ],
+  "week_field": "week",
+
+  "_input": "시행 표 하나. JSON 배열이거나 {rows:[...]} / {trials:[...]} 이면 된다.",
+  "input": {"trials": "data/trials.json"},
+
+  "_prepare": "주제별 계산(결과 종류·비교표·통계 블록). 없으면 통계 탭은 비고 행렬만 나온다.",
+  "prepare": "tools/my_prepare.py",
+
+  "row": {
+    "key": ["_week", "bench", "task"],
+    "fields": {"week": "_week", "bench": "bench", "task": "task", "title": "title", "repo": "repo", "lang": "lang"}
+  },
+  "matrix": {
+    "column_field": "model",
+    "outcome_field": "outcome",
+    "pass_outcome": "통과",
+    "focus_facet": "focus",
+    "default_columns": 6,
+    "col_labels": {"model-a": "A"},
+    "outcomes": {"통과": {"cls": "ok", "short": "통과"}, "실패": {"cls": "bad", "short": "실패"}},
+    "row_columns": [{"label": "저장소", "field": "repo"}, {"label": "푼 모델", "field": "solvers"}]
+  },
+  "cell": {
+    "id_field": "id",
+    "href_template": "archive/index-old.html#trial/{id}",
+    "error_field": "err",
+    "fields": {"scaffold": "scaffold", "turns": "steps"},
+    "kv": [{"label": "턴 수", "field": "steps"}, {"label": "종료", "field": "exit"}]
+  },
+
+  "_facets": "scope=row 는 과제 줄을, scope=cell 은 칸을 본다. type 은 enum / text / num_ge 셋뿐이다.",
+  "facets": [
+    {"key": "q", "label": "검색", "type": "text", "scope": "row", "fields": ["task", "title", "repo"]},
+    {"key": "repo", "label": "저장소", "field": "repo", "group": "과제", "scope": "row", "type": "enum"},
+    {"key": "focus", "label": "기준 모델", "field": "__col", "group": "모델", "scope": "row", "type": "enum", "multi": false},
+    {"key": "outcome", "label": "결과 종류", "field": "o", "group": "모델", "scope": "cell", "type": "enum"},
+    {"key": "turns", "label": "턴 수 ≥", "field": "turns", "type": "num_ge", "scope": "cell"}
+  ],
+  "presets": [{"id": "allfail", "label": "모두 틀림", "patch": {"cmp": "모두 틀림"}}],
+
+  "_live": "prepare 에 live() 가 없을 때만 쓰인다. .jsonl 은 줄 단위로 읽는다.",
+  "live": {"loop": "docs/live/loop.json", "feed": "docs/live/feed.jsonl", "queue": "docs/live/queue.json"}
+}

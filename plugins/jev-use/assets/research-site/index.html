@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>연구판</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="css/site.css">
+</head>
+<body>
+<header><div class="hd">
+  <h1 id="site-title">연구판</h1>
+  <nav id="tabs">
+    <button data-tab="data" class="on">자료</button>
+    <button data-tab="stats">통계</button>
+    <button data-tab="live">라이브</button>
+  </nav>
+  <span id="upd"></span>
+</div><div class="hd" style="min-height:0;padding-top:0;padding-bottom:6px">
+  <span style="font-size:12px;color:var(--muted);white-space:nowrap">주차</span>
+  <span id="weeksel"></span>
+  <span id="archlinks" style="margin-left:auto;font-size:12px"></span>
+</div></header>
+<div class="page">
+  <div id="banner" hidden></div>
+
+  <!-- 자료 = 과제 행렬. 한 줄이 한 과제, 한 칸이 한 모델(+스캐폴드)의 결과다. -->
+  <div id="tab-data">
+    <div id="fbar"></div>
+    <div id="presets" style="display:flex;flex-wrap:wrap;gap:6px;margin:0 0 6px"></div>
+    <section id="list" style="padding:0 0 10px">
+      <div class="dtools">
+        <span class="ttl" id="ltitle">과제</span>
+        <span class="mid" style="display:flex;gap:4px"><button class="tb on" id="m-list">행렬</button><button class="tb" id="m-detail">상세</button></span>
+        <button class="tb" id="colbtn" title="행렬에 보일 모델 열을 고릅니다">열 고르기</button>
+        <span class="count" id="counter"></span>
+        <span class="nav" id="rnav" hidden><button id="r-prev" title="이전 (k)">‹</button><button id="r-next" title="다음 (j) · Esc 목록">›</button></span>
+      </div>
+      <div id="colpop" class="pop" style="position:static;margin:8px 12px 0" hidden></div>
+      <div id="matwrap" class="wrap"></div>
+      <div id="record" hidden>
+        <div class="head">
+          <span class="badge p" id="r-model"></span>
+          <span class="badge" id="r-out"></span>
+          <span class="meta" id="r-task"></span>
+          <a class="rlink" id="r-raw" target="_blank" rel="noopener" style="margin-left:auto" hidden>원본 궤적 ↗</a>
+        </div>
+        <div class="kv" id="r-kv"></div>
+        <div class="errline" id="r-err" hidden></div>
+        <h3>같은 과제 · 다른 모델</h3>
+        <div class="others" id="r-others"></div>
+        <p class="note">j / k 로 과제 이동 · Esc 로 행렬 · 칸을 누르면 그 시행</p>
+      </div>
+    </section>
+  </div>
+
+  <!-- 통계 = 질문 한 개 = 블록 한 개. 차트·한 줄 결론·상태 배지. -->
+  <div id="tab-stats" hidden><div id="statswrap"></div></div>
+
+  <!-- 라이브 = 루프 띠 · 피드 · 실험 큐 · 가설 창고 -->
+  <div id="tab-live" hidden><div id="livewrap"></div></div>
+</div>
+<script src="js/ui.js"></script>
+<script src="js/charts.js"></script>
+<script src="js/list.js"></script>
+<script src="js/stats.js"></script>
+<script src="js/live.js"></script>
+<script>window.Site.boot();</script>
+</body>
+</html>
