@@ -328,6 +328,7 @@ NUMBERS_KO = {
     "design_quality": "설계 품질", "no_unimplemented": "미구현 없음", "no_duplication": "중복",
     "clean_code": "클린 코드", "failure_reproduced": "실패 재현", "no_leakage": "누출",
     "no_unnecessary": "불필요", "no_bugs": "버그", "quality": "품질",
+    "pipeline_contract_kept": "파이프라인 계약 준수", "contract_metric_used": "계약 지표 사용",
 }
 
 
@@ -644,6 +645,15 @@ DESIGN_Q = [
          " cheaper experiment answering the same question left un-run in the queue or design?",
          "no cheaper experiment would answer the same question",
          "a cheaper experiment answering the same question is sitting un-run"),
+    noul("pipeline_contract_kept", "If the intent document has a section titled 'Pipeline"
+         " contract' / '파이프라인 계약', does this design keep every numbered step of it (same"
+         " inputs, same kind of evaluator, same success metric), or amend a step ONLY by"
+         " quoting the owner's words that changed it? Substituting a different success metric"
+         " or evaluator for a contracted step is a violation.",
+         "every contracted step is present or amended with a quoted owner sentence, OR no"
+         " contract section exists -> answer high and say so",
+         "a step is dropped, replaced, or its success metric substituted without an owner"
+         " quote"),
 ]
 DESIGN_SCORE = {"id": "design_quality", "type": "score",
                 "question": "How complete is this design document as an experiment contract?",
@@ -652,10 +662,27 @@ DESIGN_SCORE = {"id": "design_quality", "type": "score",
                            "a complete, checkable contract"]}
 
 
+# Step 1c mandatory headings (SKILL.md); "Contract check" carries the pipeline-contract table.
+MANDATORY_DESIGN_HEADINGS = (
+    "Intent link", "Hypothesis", "Mechanism", "Gates", "Stop rules", "Novelty vs survey",
+    "Expected effect", "Cost vs benefit", "Closed axes not re-bought", "Line budget",
+    "Contract check")
+
+
+def missing_headings(text: str, headings=MANDATORY_DESIGN_HEADINGS) -> list[str]:
+    """Mandatory Step 1c headings absent from a design doc (a heading left empty is a
+    separate Step 3 fail, per SKILL.md); a missing heading is flagged here, loudly."""
+    return [h for h in headings if not re.search(rf"^#+\s*{re.escape(h)}", text, re.M | re.I)]
+
+
 def cmd_design(a) -> list:
     doc = Path(a.design)
+    text = doc.read_text()
+    missing = missing_headings(text)
+    if missing:
+        print(f"FLAGGED: {doc.name} is missing mandatory heading(s): {', '.join(missing)}")
     rows = emit(a, f"design.{doc.stem}", "design",
-                doc_state(Path(a.intent), [(f"DESIGN DOCUMENT: {doc.name}", doc.read_text())]),
+                doc_state(Path(a.intent), [(f"DESIGN DOCUMENT: {doc.name}", text)]),
                 DESIGN_Q + [DESIGN_SCORE])
     print("\nformal check only: any property < .5 or design_quality < 3.5 sends you back to"
           " Step 1c. Design QUALITY stays with the human.")
@@ -672,6 +699,10 @@ RESULT_Q = [
          " design defines it as, rather than a nearby one?",
          "the reported quantity matches the design's definition",
          "a reported number measures something else"),
+    noul("contract_metric_used", "Is the headline result the intent's Pipeline contract"
+         " success metric for this step -- not a proxy -- or does no contract section exist?",
+         "the headline metric is the contracted one, or no contract section exists",
+         "the headline result substitutes a proxy metric for the contracted one"),
 ]
 CONTINUE_Q = {"id": "continue", "type": "choice",
               "question": "Given these results against this design, what happens next?",

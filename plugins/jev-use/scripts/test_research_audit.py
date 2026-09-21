@@ -188,12 +188,31 @@ def test_design_questions() -> None:
     print("design questions")
     ids = [q["id"] for q in ra.DESIGN_Q]
     for q in ("novelty_stated", "novelty_vs_named_prior", "expected_effect_grounded",
-              "cost_benefit_stated", "cheapest_first"):
+              "cost_benefit_stated", "cheapest_first", "pipeline_contract_kept"):
         check(q in ids, f"design asks {q}")
     for q in ra.DESIGN_Q:
         check(set(q.get("criteria") or {}) == {"true", "false"}, f"{q['id']} has both criteria")
     check(all(q["id"] not in ra.HIGH_BAD for q in ra.DESIGN_Q),
           "every design question is high=good")
+    check(ra.NUMBERS_KO.get("pipeline_contract_kept") == "파이프라인 계약 준수",
+          "pipeline_contract_kept has its Korean label")
+    check("contract_metric_used" in [q["id"] for q in ra.RESULT_Q],
+          "results asks contract_metric_used")
+    check(ra.NUMBERS_KO.get("contract_metric_used") == "계약 지표 사용",
+          "contract_metric_used has its Korean label")
+
+
+def test_pipeline_contract_heading() -> None:
+    print("Contract check heading is a mandatory design heading")
+    check("Contract check" in ra.MANDATORY_DESIGN_HEADINGS,
+          "Contract check is in the mandatory heading list")
+    without = "## Intent link\nfoo\n"
+    missing = ra.missing_headings(without, headings=("Intent link", "Contract check"))
+    check(missing == ["Contract check"],
+          "a design text without the heading is flagged by missing_headings")
+    withit = "## Intent link\nfoo\n## Contract check\n| step | where | deviation |\n"
+    check(ra.missing_headings(withit, headings=("Intent link", "Contract check")) == [],
+          "a design text with the heading is not flagged")
 
 
 def test_impl_questions() -> None:
@@ -357,8 +376,9 @@ def test_emit_integration() -> None:
 
 def main() -> None:
     for fn in (test_scope, test_record_summary, test_unreachable, test_agent_round_trip,
-               test_design_questions, test_impl_questions, test_audit_extras,
-               test_plan_coverage_gate, test_verdict_title_and_labels, test_emit_integration):
+               test_design_questions, test_pipeline_contract_heading, test_impl_questions,
+               test_audit_extras, test_plan_coverage_gate, test_verdict_title_and_labels,
+               test_emit_integration):
         fn()
     print(f"\n{'FAILED: ' + '; '.join(FAILS) if FAILS else 'all checks passed'}")
     raise SystemExit(1 if FAILS else 0)
