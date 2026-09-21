@@ -254,7 +254,7 @@ window.Site = (function () {
       $("reportsbtn").addEventListener("click", () => $("reportspop").classList.toggle("on"));
       document.addEventListener("click", (e) => { if (!e.target.closest("#reportsw")) $("reportspop").classList.remove("on"); });
     }
-    if (qs.get("node") && S.board) S.board.node = qs.get("node");
+    if (qs.get("node") && S.board) { S.board.node = qs.get("node"); S.board.picked = true; }
     S.list.init(qs);
     S.setTab(qs.get("tab") || "stats", true);
     S.writeUrl();

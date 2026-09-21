@@ -370,3 +370,8 @@ pre.art{font:11.5px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;background:v
 .pb .why{font-size:10.5px;color:var(--warn-fg);max-width:190px;line-height:1.35}
 .pb .nm b{font-weight:700;color:var(--fg)}
 .dtabs{display:flex;gap:4px;margin:8px 0}
+/* 넓은 화면에서는 칸에 글자와 짧은 말을 함께 — 좁으면 글자만 두고 설명은 도움말로 */
+.cel .wd{display:none;font-style:normal;margin-left:4px;font-size:10.5px;opacity:.85}
+@media (min-width:1400px){.cel .wd{display:inline}}
+.cel:focus-visible{outline:2px solid var(--c1);outline-offset:1px}
+.goal .glead{font-size:11.5px;color:var(--muted);line-height:1.5}

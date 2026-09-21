@@ -141,7 +141,8 @@
         const om = outMeta(cl.o);
         const on = cur && cur.row === r && cur.model === c;
         return `<td><span class="cel ${om.cls}${on ? " cur" : ""}" data-cell="${esc(c)}" data-row="${esc(r.k)}" `
-          + `title="${esc(c + " · " + cl.o + (cl.e ? " · " + cl.e.slice(0, 90) : ""))}">${esc(om.short || cl.o)}</span></td>`;
+          + `title="${esc(c + " · " + cl.o + (cl.e ? " · " + cl.e.slice(0, 90) : ""))}" tabindex="0">`
+          + `${esc(om.short || cl.o)}${om.word ? `<em class="wd">${esc(om.word)}</em>` : ""}</span></td>`;
       }).join("");
       return `<tr data-i="${i}" class="${i === idx ? "cur" : ""}"><td class="tk"><b>${hl(r.title || r.task_short || r.task, term)}</b>`
         + `<span class="sub">${hl(r.task_short || r.task, term)}</span></td>${cells}`

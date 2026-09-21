@@ -12,6 +12,8 @@
   const pill = (t) => t ? `<span class="st ${ST[t] || "un"}">${esc(t)}</span>` : "";
   const when = (ts) => String(ts || "").replace("T", " ").replace("Z", "").slice(0, 16);
   const ko = (k) => ((S.live && S.live.kinds_ko) || {})[k] || k || "기타";
+  // **굵게** 만 그린다(나머지는 글자 그대로). 먼저 이스케이프하므로 안전하다.
+  const md = (t) => esc(t).replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>").replace(/`([^`]+)`/g, "<code>$1</code>");
   const jsonBlock = (label, obj) => `<details class="full"><summary>${esc(label)}</summary><pre>${esc(JSON.stringify(obj, null, 1))}</pre></details>`;
 
   /* ① 지금 하는 일 — 한 줄. 자세한 것은 접어 둔다. */
@@ -152,7 +154,7 @@
     if (!feed || !feed.length) return `<section><h2>기록</h2><p class="miss">자료 없음 — <code>feed.jsonl</code></p></section>`;
     const kinds = {};
     for (const f of feed) kinds[f.kind || "기타"] = (kinds[f.kind || "기타"] || 0) + 1;
-    const nd = S.board.node;
+    const nd = S.board.picked ? S.board.node : "";   // 저절로 열린 서랍은 기록을 좁히지 않는다
     let shown = feed.filter((f) => (!kind || (f.kind || "기타") === kind)
       && (!nd || f.node === nd || f.exp === nd || (f.nodes || []).includes(nd)));
     const total = shown.length;
@@ -162,10 +164,10 @@
     const items = shown.map((f) => {
       const nums = Object.entries(f.numbers || {}).map(([k, v]) => `${esc(k)} ${esc(String(v))}`).join(" · ");
       const links = (f.links || []).map((l) => `<a href="${esc(l.href)}">${esc(l.label)}</a>`).join(" · ");
-      const body = f.body ? (f.plain ? `<details><summary>자세히</summary><p class="body">${esc(f.body)}</p></details>` : `<p class="body">${esc(f.body)}</p>`) : "";
-      return `<li><div class="ft"><b>${esc(f.title || "")}</b>${pill(f.status)}<span class="tag">${esc(ko(f.kind))}</span>`
+      const body = f.body ? `<details><summary>자세히</summary><p class="body">${md(f.body)}</p></details>` : "";
+      return `<li><div class="ft"><b>${md(f.title || "")}</b>${pill(f.status)}<span class="tag">${esc(ko(f.kind))}</span>`
         + `<span class="meta">${esc(when(f.ts))}${f.author ? " · " + esc(f.author) : ""}</span></div>`
-        + (f.plain ? `<p class="plain">${esc(f.plain)}</p>` : "") + body
+        + (f.plain ? `<p class="plain">${md(f.plain)}</p>` : "") + body
         + (nums || links ? `<p class="nums">${nums}${nums && links ? " · " : ""}${links}</p>` : "") + `</li>`;
     }).join("");
     return `<section><h2>기록 <span class="tag">새것이 위</span>${nd ? `<span class="tag">고른 걸음만</span>` : ""}</h2>`
@@ -204,14 +206,20 @@
       + (ctlErr ? `<p class="note">${esc(ctlErr)}</p>` : `<p class="note">보낸 값은 하네스가 다음 바퀴에 읽습니다.</p>`) + `</div>`;
   }
 
+  // 보드 서랍이 부르는 창구 — 그 상자에 딸린 자세한 패널(바퀴별 표)을 돌려준다.
+  S.panelFor = function (id) {
+    const p = ((S.live || {}).panels || []).find((x) => x.id === id);
+    return p ? panel(p) : "";
+  };
   S.live_render = function () {
     const wrap = $("livewrap"), L = S.live;
     if (!L) { wrap.innerHTML = `<section><p class="miss">자료 없음 — <code>data/live.json</code> 을 읽지 못했습니다.</p></section>`; return; }
     const feed = (L.feed || []).filter((f) => !S.week || !f.week || f.week === S.week);
     const B = S.board;
+    // 아무것도 안 골랐으면 지금 돌고 있는 상자를 미리 열어 둔다 — 판 아래가 빈 채로 남지 않게.
+    if (!B.node && L.now && L.now.node) B.node = L.now.node;
     wrap.innerHTML = nowBar(L)
       + `<section>${B.render(L.pipeline, {id: "pbwrap-live"})}${B.drawer(L.pipeline)}</section>`
-      + (B.node ? "" : (L.panels || []).map(panel).join(""))
       + feedSection(feed)
       + `<details class="rnd"><summary>글로 보기 — 실험 큐 · 가설 창고 · 연구 한 바퀴</summary><div class="rb">`
       + loopStrip(L.loop) + queueSection(L.queue) + bankSection(L.bank) + `</div></details>`;

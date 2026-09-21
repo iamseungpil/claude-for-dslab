@@ -7,7 +7,7 @@ window.Site.board = (function () {
   const SKO = {done: "끝남", running: "진행 중", failed: "막히거나 되돌아감", returned: "막히거나 되돌아감",
                next: "다음", blocked: "막히거나 되돌아감", waiting: "대기"};
   const cache = {};
-  let node = "", mod = "", round = 0;
+  let node = "", mod = "", round = 0, picked = false;   // picked: 사람이 직접 고른 것인가
 
   const byId = (P, id) => [...(P.nodes || []), ...(P.side_nodes || [])].find((n) => n.id === id);
 
@@ -54,6 +54,7 @@ window.Site.board = (function () {
       return `<button class="goal${goalOn === g.id ? " on" : ""}" data-goal="${esc(g.id)}">`
         + `<span class="gh"><b>${esc(g.label)}</b><span class="st ${CF[g.confidence] || "un"}">${esc(g.confidence || "")}</span></span>`
         + `<span class="ga">${esc(g.answer || "")}</span>`
+        + (g.lead ? `<span class="glead">미확인 단서: ${esc(String(g.lead).replace(/^아직 못 박지 못한 단서:\s*/, ""))}</span>` : "")
         + `<span class="gm"><i style="width:${pctv}%"></i></span>`
         + `<span class="gn">${g.done} / ${g.total} 걸음 끝남${g.running ? " · 지금 진행 중" : ""}</span></button>`;
     }).join("") + `</div>`;
@@ -185,7 +186,7 @@ window.Site.board = (function () {
       + `<div class="dtabs">` + [["result", "결과"], ["how", "과정"], ["raw", "응답 전문"]]
         .filter(([k]) => k === "result" || n.modules)
         .map(([k, t]) => `<button class="tb${dtab === k ? " on" : ""}" data-dtab="${k}">${t}</button>`).join("") + `</div>`
-      + (dtab === "result" ? charts
+      + (dtab === "result" ? charts + (n.panel && S.panelFor ? S.panelFor(n.panel) : "")
           + (n.cases_filter ? `<div class="caselinks"><span class="meta">사례</span>${cases}`
             + `<button ${fa(n.cases_filter)}>자료에서 보기 →</button></div>` : "")
         : dtab === "how" ? (n.modules ? modules(n, true) : "")
@@ -196,7 +197,8 @@ window.Site.board = (function () {
 
   function onClick(e) {
     const b = e.target.closest("[data-node]");
-    if (b) { node = node === b.dataset.node ? "" : b.dataset.node; mod = ""; round = 0; S.writeUrl(); return true; }
+    if (b) { const same = node === b.dataset.node && picked;
+             node = same ? "" : b.dataset.node; picked = !same; mod = ""; round = 0; S.writeUrl(); return true; }
     const dt = e.target.closest("[data-dtab]");
     if (dt) { dtab = dt.dataset.dtab; return true; }
     const m = e.target.closest("[data-mod]");
@@ -209,5 +211,6 @@ window.Site.board = (function () {
   }
   return {render, drawer, onClick, drawArrows,
           get node() { return node; }, set node(v) { node = v; },
+          get picked() { return picked; }, set picked(v) { picked = v; },
           SKO};
 })();
