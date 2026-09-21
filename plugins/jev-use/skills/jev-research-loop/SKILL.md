@@ -390,6 +390,33 @@ Statistics shown on the site are **limited to the questions in `site.config.json
 each chart carries a **one-line takeaway plus its status**. A chart with no takeaway is not
 published.
 
+## Triggers, not monitoring (token economy)
+
+The main agent never watches. It acts on **completion notifications** only, and between
+them it spends nothing.
+
+- Sub-agents and scripts write progress to the live record themselves (`emit.py feed|node|queue`,
+  start and end of every unit of work). The site is where progress is *seen*; the conversation is not.
+- The main agent speaks to the human only at **step boundaries** (a judge verdict, a gate pass/fail,
+  a stop rule, a decision it cannot make), in ≤5 lines: what finished, the one number, what starts next.
+  It does not relay sub-agent reports, and it does not re-summarise what the site already shows.
+- Batch: launch independent units together, wait for all, then judge/score once. One audit pass per batch.
+- Screenshots and other expensive self-checks happen once per site change at acceptance
+  (`assets/research-site/AUDIT_RUBRIC.md`), not per iteration of someone else's work.
+- Waiting on external state the harness cannot notify about (a CI run, a remote queue): one check
+  sized to how long that thing takes, never a short polling loop.
+
+## Hypotheses are sentences
+
+A hypothesis is a **sentence a person could disagree with** about what the model does and why
+("after a failing test run it edits a different file instead of reading the assertion"), not a column
+that happens to separate two groups. Columns and table claims are *evidence for* a sentence.
+Every card carries the sentence (`plain`), the mechanism it implies, the training task it would
+justify, and at least one measure. Prefer measures that read the trajectory (`jev`-kind: Jev answers a
+typed question over the cited turns) when the sentence is about behaviour or intent; use predicates
+and table claims when it is string- or count-decidable. A kept column effect with no sentence that
+explains it is reported as "unexplained structure", never as a finding.
+
 ## Research site template
 
 `assets/research-site/` holds the reader-facing site: three tabs — **자료 / 통계 / 라이브** —
