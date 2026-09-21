@@ -181,6 +181,9 @@ PLAN_Q = [
          "some instance of the defect survives it", "it covers every instance"),
     noul("fix_harm", "Would the proposed change break something the intent relies on?",
          "it removes or distorts a behavior the intent needs", "it is confined to the defect"),
+    noul("budget_ok", "Does the proposed change stay inside the line budget it states -- no new"
+         " module or rewrite beyond what the plan declares?",
+         "the change fits the declared budget", "it exceeds or ignores the declared budget"),
 ]
 
 
@@ -240,6 +243,87 @@ def cmd_plant(a) -> list:
     return rows
 
 
+def doc_state(intent: Path, parts: list[tuple[str, str]]) -> str:
+    """State for document-level judging: intent (+ closed axes) then each named document."""
+    out = [f"# WRITTEN INTENT (the contract this design must serve)\n{intent.read_text()}\n",
+           f"{CLOSED}\n"]
+    for label, body in parts:
+        out.append(f"# {label}\n{body}\n")
+    return "".join(out)
+
+
+DESIGN_Q = [
+    noul("intent_consistent", "Does this design serve the written intent, rather than a"
+         " different question the intent does not ask?",
+         "every claim it tests is one the intent asks for",
+         "it tests something the intent does not ask for"),
+    noul("no_closed_axis_rebuy", "Does this design stay off the closed axes -- is it free of"
+         " re-buying a conclusion already falsified?",
+         "no closed axis is re-bought", "it re-buys an axis listed as closed"),
+    noul("gates_numeric", "Are the gates stated as numbers with a comparison, so the outcome"
+         " can be decided without further judgment?",
+         "each gate names a quantity, a threshold and a direction",
+         "a gate is qualitative, vague, or missing a threshold"),
+    noul("stop_rules_present", "Does the design name stop rules -- conditions under which the"
+         " arm is abandoned before the planned end?",
+         "at least one concrete stop condition is stated", "no stop condition is stated"),
+    noul("novelty_stated", "Does the design say what is new relative to the survey of prior"
+         " work it cites?",
+         "the delta against prior work is stated", "novelty is asserted or absent"),
+    noul("mechanism_verifiable", "Is the proposed mechanism stated concretely enough that code"
+         " could be checked against it line by line?",
+         "the mechanism names the signal, where it is applied and how it is credited",
+         "the mechanism is only a direction or a slogan"),
+]
+DESIGN_SCORE = {"id": "design_quality", "type": "score",
+                "question": "How complete is this design document as an experiment contract?",
+                "levels": ["contradicts the intent", "missing most required parts",
+                           "parts present but underspecified", "complete with gaps",
+                           "a complete, checkable contract"]}
+
+
+def cmd_design(a) -> list:
+    qs = DESIGN_Q + [DESIGN_SCORE]
+    doc = Path(a.design)
+    res = judge(doc_state(Path(a.intent), [(f"DESIGN DOCUMENT: {doc.name}", doc.read_text())]),
+                qs, a.jev_cmd, a.threshold)
+    save(Path(a.out), f"design.{doc.stem}", res)
+    table([("design", res)], [q["id"] for q in qs])
+    print("\nformal check only: any property < .5 or design_quality < 3.5 sends you back to"
+          " Step 1c. Design QUALITY stays with the human.")
+    return [("design", res)]
+
+
+RESULT_Q = [
+    noul("gates_met", "Did the measured results meet every numeric gate the design states?",
+         "every gate is met at or beyond its threshold", "at least one gate is missed"),
+    noul("stop_rule_triggered", "Did any stop rule in the design fire in these results?",
+         "a stated stop condition is satisfied by the numbers",
+         "no stop condition is satisfied"),
+    noul("metric_matches_definition", "Does each reported metric compute the quantity the"
+         " design defines it as, rather than a nearby one?",
+         "the reported quantity matches the design's definition",
+         "a reported number measures something else"),
+]
+CONTINUE_Q = {"id": "continue", "type": "choice",
+              "question": "Given these results against this design, what happens next?",
+              "options": {"continue": "gates are on track; keep the arm running",
+                          "stop_arm": "a stop rule fired or the arm is dead",
+                          "back_to_step_1": "the design or the measurement itself is wrong"}}
+
+
+def cmd_results(a) -> list:
+    qs = RESULT_Q + [CONTINUE_Q]
+    d, r = Path(a.design), Path(a.results)
+    state = doc_state(Path(a.intent), [(f"DESIGN DOCUMENT: {d.name}", d.read_text()),
+                                       (f"MEASURED RESULTS: {r.name}", r.read_text())])
+    res = judge(state, qs, a.jev_cmd, a.threshold)
+    save(Path(a.out), f"results.{d.stem}", res)
+    table([("results", res)], [q["id"] for q in qs])
+    print("\nstop_rule_triggered is high=BAD. A problem on any row sends you back to Step 1.")
+    return [("results", res)]
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--intent", required=True, help="path to the corrected intent document")
@@ -268,6 +352,13 @@ def main() -> None:
     idl.add_argument("--intent-b", required=True, help="the second (e.g. corrected) intent doc")
     idl.add_argument("--file", required=True)
     idl.set_defaults(fn=cmd_intent_delta)
+    dg = sub.add_parser("design", help="formal check of a design doc before planning")
+    dg.add_argument("--design", required=True, help="path to .jev-loop/design.md")
+    dg.set_defaults(fn=cmd_design)
+    rs = sub.add_parser("results", help="judge measured results against the design's gates")
+    rs.add_argument("--design", required=True, help="path to .jev-loop/design.md")
+    rs.add_argument("--results", required=True, help="path to .jev-loop/results.md")
+    rs.set_defaults(fn=cmd_results)
     a = ap.parse_args()
     preflight()
     if a.closed_axes:

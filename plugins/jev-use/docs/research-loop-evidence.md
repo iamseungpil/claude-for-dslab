@@ -1,7 +1,7 @@
-# Research-audit evidence
+# Research-loop evidence
 
-What was measured when the `jev-research-audit` skill was validated on a live RL
-research repo. All numbers are `noul` answers from batched `jev-use judge` calls;
+What was measured when the `jev-research-loop` skill (then the standalone
+implementation audit, now Step 8) was validated on a live RL research repo. All numbers are `noul` answers from batched `jev-use judge` calls;
 the state was an intent document plus module source.
 
 ## Planted-defect and perturbation deltas
@@ -34,7 +34,7 @@ returned `escalate: "unsure"` — estimated confidence < .4.
    was never in any state Jev saw. Jev cannot flag code it was not shown.
 5. **A wrong intent produces a confident wrong audit.** The .65 → .52 drop on
    *unchanged* code is the failure mode to avoid: correct the intent document
-   against the project's own records before Step 1.
+   against the project's own records in Step 0, before any property is written.
 
 ## Today's four findings, classified on both axes
 
