@@ -184,8 +184,181 @@ def test_agent_round_trip() -> None:
         check(run(args, d).returncode == 6, "a noul answer of 4 exits 6")
 
 
+def test_design_questions() -> None:
+    print("design questions")
+    ids = [q["id"] for q in ra.DESIGN_Q]
+    for q in ("novelty_stated", "novelty_vs_named_prior", "expected_effect_grounded",
+              "cost_benefit_stated", "cheapest_first"):
+        check(q in ids, f"design asks {q}")
+    for q in ra.DESIGN_Q:
+        check(set(q.get("criteria") or {}) == {"true", "false"}, f"{q['id']} has both criteria")
+    check(all(q["id"] not in ra.HIGH_BAD for q in ra.DESIGN_Q),
+          "every design question is high=good")
+
+
+def test_impl_questions() -> None:
+    print("implementation-audit questions")
+    check("duplicates_existing" in ra.HIGH_BAD and "repeats_failed_impl" in ra.HIGH_BAD,
+          "duplicates_existing and repeats_failed_impl are high=bad")
+    check("clean_code" not in ra.HIGH_BAD and "plan_coverage" not in ra.HIGH_BAD,
+          "clean_code and plan_coverage are high=good")
+    check("file:line" in ra.CLEAN_CODE["criteria"]["false"],
+          "clean_code demands a file:line in the reason")
+    check("plan item ids" in ra.PLAN_COVERAGE["criteria"]["false"],
+          "plan_coverage demands the missing plan item ids")
+    with tempfile.TemporaryDirectory() as t:
+        d = Path(t)
+        (d / "a.py").write_text("def alpha():\n    pass\nclass Beta:\n    pass\n")
+        (d / "sub").mkdir(); (d / "sub" / "b.py").write_text("def gamma():\n    pass\n")
+        (d / "broken.py").write_text("def (:\n")
+        idx = ra.sig_index(str(d))
+        check("alpha" in idx and "Beta" in idx and "gamma" in idx, "the index names def/class")
+        check("broken" not in idx, "an unparsable file is skipped")
+        big = d / "big.py"
+        big.write_text("".join(f"def f{i}():\n    pass\n" for i in range(4000)))
+        capped = ra.sig_index(str(d), cap=500)
+        check(len(capped) <= 540 and "truncated" in capped, "the index is capped and says so")
+
+
+class M:            # the `modules` namespace, enough for audit_extras()
+    def __init__(self, **kw):
+        self.__dict__.update({"plan": None, "package_root": None, "failed_impls": None, **kw})
+
+
+def test_audit_extras() -> None:
+    print("audit extras and their inputs")
+    with tempfile.TemporaryDirectory() as t:
+        d = Path(t)
+        ids = [q["id"] for q in ra.audit_extras(M())]
+        check(ids == ["clean_code"], "without inputs only clean_code is asked")
+        check(ra.EXTRA == "", "no extra state without inputs")
+        (d / "pkg").mkdir(); (d / "pkg" / "x.py").write_text("def already_here():\n    pass\n")
+        led = d / "failed.txt"
+        led.write_text("2026-09-01 a clamp on credit; it erased the magnitude\n")
+        ids = [q["id"] for q in ra.audit_extras(M(package_root=str(d / "pkg"),
+                                                  failed_impls=str(led)))]
+        check(ids == ["clean_code", "duplicates_existing", "repeats_failed_impl"],
+              "both inputs add their question")
+        check("already_here" in ra.EXTRA, "the signature index reaches the state")
+        check("erased the magnitude" in ra.EXTRA, "the failed-impls text reaches the state")
+        try:
+            ra.audit_extras(M(failed_impls=str(d / "nope.txt")))
+            check(False, "a missing ledger dies")
+        except SystemExit as e:
+            check(e.code == 2, "a missing failed-impls ledger dies (exit 2) with a hint")
+        ra.EXTRA = ""
+
+
+def answer(d: Path, tag: str, plain: str | None = None, value: float = 0.8,
+           flip: bool = False) -> None:
+    """Write a verdicts file answering whatever the request asked for. `flip` answers the
+    high=bad ids with 1-value, i.e. a clean run instead of a failing one."""
+    req = d / "aud" / f"{tag}.request.json"
+    out = verdicts_for(req)
+    for v, q in zip(out["verdicts"], json.loads(req.read_text())["questions"]):
+        if q.get("type", "noul") == "noul":
+            v["answer"] = round(1 - value, 2) if flip and q["id"] in ra.HIGH_BAD else value
+    if plain is not None:
+        out["plain"] = plain
+    (d / "aud" / f"{tag}.verdicts.json").write_text(json.dumps(out, ensure_ascii=False))
+
+
+def bed(d: Path) -> list[str]:
+    """A tiny repo: intent, one module, a plan, a package to index, a ledger."""
+    (d / "INTENT.md").write_text(INTENT)
+    (d / "credit.py").write_text(SRC)
+    (d / "plan.md").write_text("- M1 credit hook\n- M2 grader\n")
+    (d / "pkg").mkdir(exist_ok=True)
+    (d / "pkg" / "x.py").write_text("def already_here():\n    pass\n")
+    (d / "failed.txt").write_text("2026-09-01 a clamp; it erased the magnitude\n")
+    return ["--judge", "agent", "--intent", "INTENT.md", "--out", "aud"]
+
+
+def test_plan_coverage_gate() -> None:
+    print("plan_coverage is asked only with --plan")
+    with tempfile.TemporaryDirectory() as t:
+        d = Path(t)
+        args = bed(d) + ["modules", "--files", "credit.py"]
+        p = run(args, d)
+        check(p.returncode == 5 and "plan_coverage skipped" not in p.stdout,
+              "the first call still awaits the module verdicts")
+        answer(d, "credit")
+        p = run(args, d)
+        check("plan_coverage skipped" in p.stdout and "--plan" in p.stdout,
+              "without --plan the question is skipped with a hint")
+        check(not (d / "aud" / "plan_coverage.request.json").exists(),
+              "no plan_coverage request is written without --plan")
+        check("duplicates_existing skipped" in p.stdout
+              and "repeats_failed_impl skipped" in p.stdout,
+              "the other two are skipped with hints too")
+
+        args2 = bed(d) + ["modules", "--files", "credit.py", "--plan", "plan.md",
+                          "--package-root", "pkg", "--failed-impls", "failed.txt"]
+        run(args2, d)                      # rewrites the request with the extra questions
+        answer(d, "credit")
+        p = run(args2, d)
+        check(p.returncode == 5 and (d / "aud" / "plan_coverage.request.json").exists(),
+              "with --plan the plan_coverage request is written")
+        req = json.loads((d / "aud" / "credit.request.json").read_text())
+        check([q["id"] for q in req["questions"]][-4:-1]
+              == ["clean_code", "duplicates_existing", "repeats_failed_impl"],
+              "the module request carries the three per-module additions")
+        check("already_here" in req["state"] and "erased the magnitude" in req["state"],
+              "signature index and ledger are in the module state")
+        pc = json.loads((d / "aud" / "plan_coverage.request.json").read_text())
+        check([q["id"] for q in pc["questions"]] == ["plan_coverage"]
+              and "M2 grader" in pc["state"] and "credit.py" in pc["state"],
+              "plan_coverage is asked once, against the plan and the file list")
+
+
+def test_verdict_title_and_labels() -> None:
+    """판정 줄의 제목은 '<단계> 판정: <문서>' 이고, 숫자 항목에는 한국어 이름표가 붙는다."""
+    import research_audit as ra
+    check(ra.verdict_title("design", ["design.design_v4"]) == "설계 판정: design_v4",
+          "a design verdict says 설계 판정 with the document stem, not 'design design'")
+    check(ra.verdict_title("results", ["results.round5"]) == "결과 판정: round5",
+          "every judged step has a Korean step name")
+    for qid, ko in (("intent_consistent", "의도 부합"), ("no_leakage", "누출"),
+                    ("design_quality", "설계 품질")):
+        check(ra.NUMBERS_KO.get(qid) == ko, f"{qid} has the Korean label {ko}")
+
+
+def test_emit_integration() -> None:
+    print("--emit writes a verdict line and patches loop.json")
+    with tempfile.TemporaryDirectory() as t:
+        d = Path(t)
+        args = bed(d) + ["--emit", "live", "--step", "8", "modules", "--files", "credit.py"]
+        run(args, d)
+        answer(d, "credit")                              # no "plain" yet
+        p = run(args, d)
+        check(p.returncode == 6, f"agent verdicts without plain exit 6 (got {p.returncode})")
+        check("plain is empty" in p.stderr and "plain" in p.stderr,
+              "the error hints at the missing plain")
+        answer(d, "credit", plain="코드를 한 줄씩 살펴봤어요. 걱정할 곳은 없었어요.")
+        p = run(args, d)
+        check(p.returncode == 0, f"with plain the run succeeds (got {p.returncode})")
+        line = json.loads((d / "live" / "feed.jsonl").read_text().splitlines()[-1])
+        check(line["kind"] == "verdict" and "modules" in line["title"],
+              "a verdict line is appended, titled by command and target")
+        check(line["plain"].startswith("코드를"), "the agent's plain is the line's plain")
+        check(line["numbers"].get("bug") == 0.8 and len(line["body"].splitlines()) == 3,
+              "numbers carry the scores and the body holds the lowest three")
+        lp = json.loads((d / "live" / "loop.json").read_text())
+        check(lp["step"] == 8 and lp["status"] == "back",
+              "loop.json carries the step and a back status (high=bad answers at .80)")
+        answer(d, "credit", plain="이번에는 모든 항목이 기준을 넘었어요. 다음으로 갑니다.",
+               flip=True)
+        run(args, d)
+        check(json.loads((d / "live" / "loop.json").read_text())["status"] == "forward",
+              "all-good answers patch the status forward")
+        check(len((d / "live" / "feed.jsonl").read_text().splitlines()) == 2,
+              "the feed is append-only")
+
+
 def main() -> None:
-    for fn in (test_scope, test_record_summary, test_unreachable, test_agent_round_trip):
+    for fn in (test_scope, test_record_summary, test_unreachable, test_agent_round_trip,
+               test_design_questions, test_impl_questions, test_audit_extras,
+               test_plan_coverage_gate, test_verdict_title_and_labels, test_emit_integration):
         fn()
     print(f"\n{'FAILED: ' + '; '.join(FAILS) if FAILS else 'all checks passed'}")
     raise SystemExit(1 if FAILS else 0)
