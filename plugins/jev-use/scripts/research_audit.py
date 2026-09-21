@@ -10,6 +10,7 @@ JEV_BACKEND=mock). See --help.
 from __future__ import annotations
 
 import argparse
+import ast
 import datetime
 import json
 import os
@@ -18,6 +19,10 @@ import shlex
 import subprocess
 import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import emit as live  # noqa: E402  the live record: feed.jsonl + loop.json
+
 
 def noul(i: str, q: str, t: str, f: str) -> dict:
     return {"id": i, "type": "noul", "question": q, "criteria": {"true": t, "false": f}}
@@ -45,12 +50,42 @@ QUALITY = {"id": "quality", "type": "score",
                       "faithfully realizes it"]}
 
 
+# --- implementation-audit questions that need an extra input to be answerable ------------
+CLEAN_CODE = noul(
+    "clean_code",
+    "Does this module keep clean-code discipline? Checklist: one job per function; names say"
+    " what they do; no magic numbers and no hidden global state; the module stays inside its"
+    " declared line budget; it has a test.",
+    "every item of the checklist holds",
+    "at least one item fails -- cite the file:line where it fails")
+DUPLICATES = noul(
+    "duplicates_existing",
+    "Does this module re-implement something the package already provides, per the signature"
+    " index below?",
+    "a function or class here duplicates one already present elsewhere in the package",
+    "nothing here exists elsewhere in the package")
+REPEATS_FAILED = noul(
+    "repeats_failed_impl",
+    "Does this module redo an implementation the failed-implementation ledger already records"
+    " as tried and failed?",
+    "it rebuilds something the ledger says already failed",
+    "it is not on the ledger")
+PLAN_COVERAGE = noul(
+    "plan_coverage",
+    "Is every module the plan lists actually implemented in the files audited -- no plan item"
+    " left unbuilt, stubbed or silently zeroed?",
+    "every plan item has a built file behind it",
+    "a plan item is missing -- list the missing plan item ids in the reason")
+
 AGENT = False           # --judge agent: the main agent answers; no backend call is made
 OUT = "./.jev-audit/"   # --out, needed by the agent-judge request/verdict file round trip
+EXTRA = ""              # signature index + failed-impl ledger, folded into every code state
+EMIT: str | None = None  # --emit DIR: the live record this run writes a verdict line to
 
 # a reason must cite something checkable: file:line, or a document/section reference
 CITE = re.compile(r"[\w./\\-]+\.\w+:\d+|[\w./\\-]+\.(?:md|txt|json|ya?ml|rst)\b|§\s*\S+")
-HIGH_BAD = ("bug", "gold_leak", "unneeded", "stop_rule_triggered")   # high = bad noul ids
+HIGH_BAD = ("bug", "gold_leak", "unneeded", "stop_rule_triggered",  # high = bad noul ids
+            "duplicates_existing", "repeats_failed_impl")
 SCOPES = ("code", "run", "design")
 
 
@@ -114,6 +149,9 @@ def agent_judge(tag: str, state: str, questions: list[dict]) -> dict:
         die(f"{ver} is not valid JSON ({e})", "rewrite the verdicts file as one JSON object", 6)
         return {}
     check_agent(res, questions, ver)
+    if EMIT and (err := live.check_plain(res.get("plain"))):
+        die(f"{ver}: {err}",
+            'add a top-level "plain" next to "verdicts": ' + live.PLAIN_HINT, 6)
     res["backend"] = "agent"
     res.setdefault("latencyMs", 0)
     return res
@@ -205,9 +243,54 @@ def props_of(path: str | None, scope: str) -> list[dict]:
     return out
 
 
-def questions_for(path: str | None) -> list[dict]:
-    """Code-scope properties (if any) first, then the three fixed noul + quality."""
-    return props_of(path, "code") + FIXED + [QUALITY]
+def questions_for(path: str | None, extra: list[dict] | None = None) -> list[dict]:
+    """Code-scope properties (if any) first, then the three fixed noul, then quality."""
+    return props_of(path, "code") + FIXED + (extra or []) + [QUALITY]
+
+
+SIG_CAP = 6000   # the signature index is a hint, not the package: ~6 KB, then truncated
+
+
+def sig_index(root: str, cap: int = SIG_CAP) -> str:
+    """def/class names per file under `root`, parsed with ast, capped. Unparsable files are
+    skipped -- a partial index is still a usable duplicate hint."""
+    lines = []
+    for p in sorted(Path(root).rglob("*.py")):
+        try:
+            tree = ast.parse(p.read_text())
+        except (OSError, SyntaxError, ValueError):
+            continue
+        names = [n.name for n in tree.body
+                 if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))]
+        if names:
+            lines.append(f"{p}: {', '.join(names)}")
+    s = "\n".join(lines)
+    return s[:cap] + "\n... (index truncated)" if len(s) > cap else s
+
+
+def audit_extras(a) -> list[dict]:
+    """The Step 8 questions that need an input: each is skipped, loudly, without it."""
+    global EXTRA  # noqa: PLW0603
+    qs, parts = [CLEAN_CODE], []
+    if getattr(a, "package_root", None):
+        qs.append(DUPLICATES)
+        parts.append("# PACKAGE SIGNATURE INDEX (def/class per file, truncated)\n"
+                     + sig_index(a.package_root) + "\n")
+    else:
+        print("note: duplicates_existing skipped — pass --package-root SRC to ask it")
+    if getattr(a, "failed_impls", None):
+        led = Path(a.failed_impls)
+        if not led.exists():
+            die(f"failed-impls ledger {led} does not exist",
+                "start it: one line per abandoned build (what was built, why it failed, date)")
+        qs.append(REPEATS_FAILED)
+        parts.append("# FAILED IMPLEMENTATIONS (already built once and abandoned)\n"
+                     + led.read_text() + "\n")
+    else:
+        print("note: repeats_failed_impl skipped — pass --failed-impls docs/failed_impls.txt"
+              " to ask it")
+    EXTRA = "\n" + "\n".join(parts) if parts else ""
+    return qs
 
 
 def run_questions(path: str | None) -> list[dict]:
@@ -225,7 +308,7 @@ CLOSED = ""   # set from --closed-axes; appended to every state so design_error 
 
 def head(intent: Path, label: str, body: str) -> str:
     return (f"# WRITTEN INTENT (the contract this code must satisfy)\n{intent.read_text()}\n"
-            f"{CLOSED}\n# CODE UNDER AUDIT: {label}\n```python\n{body}\n```\n")
+            f"{CLOSED}{EXTRA}\n# CODE UNDER AUDIT: {label}\n```python\n{body}\n```\n")
 
 
 def save(out: Path, name: str, res: dict) -> None:
@@ -265,7 +348,7 @@ def split_functions(src: str) -> list[tuple[str, str]]:
 
 
 def cmd_modules(a) -> list:
-    qs = questions_for(a.properties)
+    qs = questions_for(a.properties, audit_extras(a))
     rows = []
     for f in a.files:
         p = Path(f)
@@ -274,6 +357,18 @@ def cmd_modules(a) -> list:
         save(Path(a.out), p.stem, res)
         rows.append((p.name, res))
     table(rows, [q["id"] for q in qs])
+    if not a.plan:
+        print("note: plan_coverage skipped — pass --plan .jev-loop/plan.md to ask it")
+        return rows
+    state = (f"# WRITTEN INTENT\n{Path(a.intent).read_text()}\n{CLOSED}\n"
+             f"# PLAN (what was to be built)\n{Path(a.plan).read_text()}\n"
+             "# FILES ACTUALLY AUDITED\n" + "".join(
+                 f"{f} ({len(Path(f).read_text().splitlines())} lines)\n" for f in a.files))
+    res = judge(state, [PLAN_COVERAGE], a.jev_cmd, a.threshold, "plan_coverage",
+                "plan_coverage")
+    save(Path(a.out), "plan_coverage", res)
+    table([("plan_coverage", res)], ["plan_coverage"])
+    rows.append(("plan_coverage", res))
     return rows
 
 
@@ -431,6 +526,37 @@ def record(a, rows: list) -> None:
     print(f"recorded: {p}  (history entries: {len(st['history'])})")
 
 
+def failed(v: dict) -> bool:
+    """Step 3 / Step 8c thresholds: high=good under .5, high=bad at .55 or above."""
+    x = v.get("answer")
+    if not isinstance(x, (int, float)) or isinstance(x, bool):
+        return False
+    if vkind(v) == "score":
+        return x < 3.5
+    return x >= 0.55 if v["id"] in HIGH_BAD else x < 0.5
+
+
+def live_verdict(a, rows: list) -> None:
+    """One `verdict` feed line per judged command, plus a loop.json patch. The script cannot
+    write child-level prose: agent mode must supply "plain", jev mode gets a template."""
+    vs = [v for _, r in rows for v in r.get("verdicts", []) if isinstance(v, dict) and "id" in v]
+    bad = [v for v in vs if failed(v)]
+    nums = {v["id"]: v["answer"] for v in vs if isinstance(v.get("answer"), (int, float))
+            and not isinstance(v.get("answer"), bool)}
+    low = sorted(((k, x) for k, x in nums.items()), key=lambda kv: kv[1])[:3]
+    by = {v["id"]: v for v in vs}
+    plain = next((r.get("plain") for _, r in rows if r.get("plain")), None) or (
+        f"심판이 {len(vs)}가지를 확인했고 {len(bad)}가지가 기준에 못 미쳤어요. "
+        + ("그래서 앞 단계로 돌아가요." if bad else "그래서 다음 단계로 가요."))
+    live.feed(EMIT, "verdict", a.cmd, f"{a.cmd} {', '.join(n for n, _ in rows)}", plain,
+              body="\n".join(f"{k}={x:.2f} — {by[k].get('reason') or by[k].get('evidence') or ''}"
+                             for k, x in low),
+              numbers=nums, author="research_audit")
+    live.loop(EMIT, step=getattr(a, "step", None) or "", status="back" if bad else "forward",
+              scores={v["id"]: v["answer"] for v in vs if vkind(v) == "score"},
+              design=rows[0][0] if a.cmd == "design" else "")
+
+
 def cmd_record(a) -> list:
     """agent mode, by hand: turn the agent's own answers into a verdict file of the jev shape.
     noul values in [0,1], score 1-5, one line of evidence (file:line) per answer."""
@@ -475,6 +601,26 @@ DESIGN_Q = [
          " could be checked against it line by line?",
          "the mechanism names the signal, where it is applied and how it is credited",
          "the mechanism is only a direction or a slogan"),
+    noul("novelty_vs_named_prior", "Does the design name at least one specific prior work from"
+         " the survey and state a concrete delta against it?",
+         "a named prior work is cited and the delta is a real change of mechanism, data or"
+         " measurement",
+         "no prior work is named, or the delta is only a rename or a re-scope of it"),
+    noul("expected_effect_grounded", "Does the design state the baseline number, the expected"
+         " effect size with its source, and that the gate thresholds exceed the known noise"
+         " band?",
+         "baseline, expected effect with a source (a prior result or own pilot), and gates"
+         " above the noise band are all stated",
+         "the expected effect is absent, unsourced, or inside the noise band"),
+    noul("cost_benefit_stated", "Does the design estimate what this costs (money, time, tokens,"
+         " lines) and say which intent goal advances by how much if it works, against at least"
+         " one cheaper alternative?",
+         "cost, the advance on a named intent goal, and a cheaper alternative are all stated",
+         "cost or payoff is unstated, or no cheaper alternative is compared"),
+    noul("cheapest_first", "Is this the cheapest experiment that answers this question -- is no"
+         " cheaper experiment answering the same question left un-run in the queue or design?",
+         "no cheaper experiment would answer the same question",
+         "a cheaper experiment answering the same question is sitting un-run"),
 ]
 DESIGN_SCORE = {"id": "design_quality", "type": "score",
                 "question": "How complete is this design document as an experiment contract?",
@@ -534,12 +680,21 @@ def main() -> None:
     ap.add_argument("--threshold", type=float)
     ap.add_argument("--closed-axes", help="text file of axes already falsified; goes into every"
                     " state so re-buying one shows as design_error")
+    ap.add_argument("--emit", metavar="DIR", help="live record directory: every judged command"
+                    " appends a `verdict` line to DIR/feed.jsonl and patches DIR/loop.json."
+                    " With --judge agent the verdicts file must carry a top-level \"plain\"")
+    ap.add_argument("--step", type=int, help="loop step this judgment belongs to")
     ap.add_argument("--record", action="store_true", help="append {step, subcommand, targets,"
                     " min_property, max_bug, scores, choice, backend, escalated, timestamp} to"
                     " <out>/STATE.json.history; an unreachable judgment appends nothing")
     sub = ap.add_subparsers(dest="cmd", required=True)
     m = sub.add_parser("modules", help="one batched call per file")
     m.add_argument("--files", nargs="+", required=True); m.set_defaults(fn=cmd_modules)
+    m.add_argument("--plan", help="plan.md; enables plan_coverage, asked once per run")
+    m.add_argument("--package-root", help="package to index (def/class per file, ~6 KB);"
+                   " enables duplicates_existing")
+    m.add_argument("--failed-impls", help="text ledger of implementations already tried and"
+                   " abandoned; enables repeats_failed_impl")
     f = sub.add_parser("functions", help="re-ask bug/unneeded per function")
     f.add_argument("--file", required=True); f.set_defaults(fn=cmd_functions)
     pl = sub.add_parser("plan", help="judge a proposed fix before writing it")
@@ -565,7 +720,6 @@ def main() -> None:
     rc.set_defaults(fn=cmd_runconfig)
     rd = sub.add_parser("record", help="agent answers by hand -> verdict file + history row")
     rd.add_argument("--target", required=True, help="verdict file name under --out")
-    rd.add_argument("--step", type=int, help="loop step this judgment belongs to")
     rd.add_argument("--answers", required=True, help='JSON {id: value} + optional "evidence"')
     rd.set_defaults(fn=cmd_record)
     a = ap.parse_args()
@@ -574,8 +728,8 @@ def main() -> None:
             die("--intent is required", "pass --intent path/to/INTENT.md")
         if a.judge == "jev":
             preflight()   # --judge agent needs no key and no node
-    global AGENT, CLOSED, OUT  # noqa: PLW0603
-    AGENT, OUT = a.judge in ("agent", "fable"), a.out
+    global AGENT, CLOSED, OUT, EMIT  # noqa: PLW0603
+    AGENT, OUT, EMIT = a.judge in ("agent", "fable"), a.out, a.emit
     if a.closed_axes:
         CLOSED = ("\n# CLOSED AXES (already falsified -- re-buying one is a design error)\n"
                   + Path(a.closed_axes).read_text() + "\n")
@@ -588,6 +742,8 @@ def main() -> None:
         raise SystemExit(4)
     if a.record:
         record(a, rows)
+    if EMIT:
+        live_verdict(a, rows)
     if any(v.get("escalate") for _, r in rows for v in r.get("verdicts", [])):
         print("\nnote: escalated verdicts are priors only -- they order your reading list,"
               " they never close a question.")

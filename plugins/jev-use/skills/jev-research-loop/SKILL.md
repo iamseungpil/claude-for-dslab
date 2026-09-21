@@ -84,6 +84,15 @@ confident wrong audit — that is `intent_error`.
 approved in conversation** — pool size, K, steps, seeds, level filter, budget — and check
 that each appears **verbatim in the intent doc**. A missing one is an `intent_error` owned
 by **the agent, not Jev**: *Jev cannot see a number that is in no document.* In the
+**Reader questions + site config (once at the start, again when the intent doc changes).**
+Ask the human the five fixed reader questions and write the answers beside the intent doc:
+**what are we trying to learn** · **what is established, one number each** · **what was
+retracted** · **what do we build or change** · **what is unknown, and what is next**.
+Questions that arrive later are appended to that file as `proposed` and **never block the
+loop**. Write `site.config.json` next to it in the same pass — the **task × model table
+columns**, the **filter facets**, and the **statistics questions**, which are *only* what
+the intent needs to know. A statistic no reader question asks for does not go on the site.
+
 2026-09-21 run an approved **200-problem pilot** was absent from the intent doc while the
 code used **388**; once the number was written into the intent and a `pilot_scale` property
 added, the job-state judgment came back **.04** and caught it. Approved-but-unwritten
@@ -100,7 +109,12 @@ numbers are the one defect class no amount of property tuning reaches.
   **Intent link** (which sentence of the intent doc this serves) · **Hypothesis**
   (falsifiable) · **Mechanism** (signal, where applied, how credited) · **Gates
   (numeric)** — quantity, threshold, direction · **Stop rules** · **Novelty vs survey** ·
-  **Closed axes not re-bought** · **Line budget**. A heading left empty is a Step 3 fail.
+  **Expected effect** (baseline number, expected effect size *with its source*, and why the
+  gate thresholds sit above the known noise band) · **Cost vs benefit** (money/time/tokens/
+  lines, which intent goal advances by how much if it works, and one cheaper alternative it
+  beats) · **Closed axes not re-bought** · **Line budget**. A heading left empty is a Step 3
+  fail. **Hypotheses come from the project's hypothesis bank** when one exists: the main
+  agent picks and narrows them, it does not hand-write new ones beside the bank.
 
 ## Step 2 — DESIGN JUDGE (script → Jev)
 
@@ -115,9 +129,15 @@ agent judge: `... --judge agent design` writes the request file instead of calli
 
 Fixed `noul` questions, all phrased **high = good**: `intent_consistent` ·
 `no_closed_axis_rebuy` · `gates_numeric` · `stop_rules_present` · `novelty_stated` ·
-`mechanism_verifiable`; plus `design_quality`, a 1–5 `score`. **These verdicts are a
-formal check only** — whether the research idea is *good* is not a Jev question and stays
-with the human.
+`mechanism_verifiable` · `novelty_vs_named_prior` (a *named* prior work from the survey and
+a delta that is more than a rename or a re-scope) · `expected_effect_grounded` (baseline,
+sourced effect size, gates above the noise band) · `cost_benefit_stated` (cost, the advance
+on a named intent goal, one cheaper alternative) · `cheapest_first` (no cheaper experiment
+answering the same question left un-run in the queue); plus `design_quality`, a 1–5 `score`.
+**These verdicts are a formal check only** — whether the research idea is *good* is not a
+Jev question and stays with the human. The four added ones ask what the owner actually buys
+with an experiment: **novelty against prior work, fit to the intent, expected performance,
+return on the money.**
 
 ## Step 3 — rule
 
@@ -178,7 +198,19 @@ least one **run-scale** property in the `pilot_scale` mould, pinning the scale t
 fixes (*"does the submitted run use the pilot pool size / K / step count the intent
 names?"*), which is what Step 8h below judges. Phrase
 properties so **high = good**; the script adds three fixed `noul` questions where
-**high = bad** (`gold_leak`, `unneeded`, `bug`) plus `quality`, a 5-level `score`. A
+**high = bad** (`gold_leak`, `unneeded`, `bug`) plus `quality`, a 5-level `score`, plus
+these, which cover the rest of what goes wrong in an implementation — **unimplemented,
+mis-implemented, duplicate, unclean, already-failed**:
+
+| id | high = | asked when | what it catches |
+| --- | --- | --- | --- |
+| `clean_code` | good | always | one job per function · names that say what they do · no magic numbers or hidden global state · inside the line budget · has a test. Reasons must cite `file:line` |
+| `plan_coverage` | good | `--plan PATH`, **once per `modules` run**, against the plan + the file list | a plan item never built; the reason lists the missing plan item ids |
+| `duplicates_existing` | **bad** | `--package-root SRC` (a ~6 KB `def`/`class` index built with `ast` goes into the state) | this module re-implementing something the package already has |
+| `repeats_failed_impl` | **bad** | `--failed-impls PATH` (a text ledger like closed axes) | rebuilding something the ledger already records as tried and failed |
+
+Each is **skipped with a printed hint** when its input is missing — a question asked without
+its evidence is a confident answer about nothing. A
 property must be verifiable *from the code*; "is this good research?" is `open_ended`.
 
 **Property scope.** Each property may carry an optional `"scope"`: `"code"` (the default when
@@ -202,8 +234,9 @@ If `properties.json` has no run-scope property, `runconfig` dies with a hint: ad
 
 ```bash
 python3 scripts/research_audit.py --intent docs/INTENT.md --properties properties.json \
-  --out ./.jev-loop/ --closed-axes docs/closed_axes.txt \
-  modules --files mc/credit.py mc/train_hook.py
+  --out ./.jev-loop/ --closed-axes docs/closed_axes.txt --emit ./.jev-loop/live/ \
+  modules --files mc/credit.py mc/train_hook.py \
+  --plan .jev-loop/plan.md --package-root mc --failed-impls docs/failed_impls.txt
 ```
 
 agent judge: `... --judge agent modules` writes the request file instead of calling the backend; answer it into `<tag>.verdicts.json` and rerun the same command.
@@ -300,6 +333,11 @@ gate definition in the design doc (Step 1c) · `intent_error` → Step 0 with th
 `runtime_error` → Step 10 · `unclassified` → run `next_test`, then re-enter Step 8e. No
 open 확정 row may pass to Step 10.
 
+**Whenever the cause axis is `impl_error` or `measurement_error`**, the main agent appends
+**one line** to `docs/failed_impls.txt`: *what was built, why it failed, the date.* That
+ledger is what `--failed-impls` feeds back into the next audit, so the same dead
+implementation is not bought twice.
+
 ## Step 10 — QUEUE + RESULTS JUDGE
 
 Run **Step 8h (run config)** first — it lives at the end of Step 8 and is the last gate before
@@ -320,6 +358,44 @@ agent judge: `... --judge agent results` writes the request file instead of call
 plus `continue`, a `choice` among `{continue, stop_arm, back_to_step_1}`. Any problem —
 gate missed, stop rule fired, metric mismatch — sends the loop back to **Step 1**, and
 `experiment-verifier` is the subagent to call when a reported number itself is in doubt.
+
+## Live record
+
+The loop is watched while it runs, so it writes as it goes. `scripts/emit.py` keeps
+`feed.jsonl` (append-only), `loop.json`, `queue.json` under one directory.
+
+- **Every step transition and EVERY progress check emits one feed line** with `plain`: 2–3
+  sentences a child could follow — what happened and what it means, no ids, no jargon.
+  `emit.py` rejects a `plain` that is empty, over 400 characters, or carrying a gate/step id.
+- **After each experiment table is read, a `note` is mandatory**, with
+  `status` 확정 / 미확인 / 잡음. There is no reading a table and saying nothing.
+- Only an interpretation that **passes the Step 10 results judge** may be marked 확정 on the
+  statistics page. One that fails is marked **철회** — never deleted.
+- `research_audit.py --emit DIR` writes the `verdict` line itself after every judged command
+  and patches `loop.json`. In `--judge agent` mode the verdicts file must carry a top-level
+  `"plain"` (validated the same way, exit 6 without it); in Jev mode the line gets a
+  templated sentence built from the pass/fail counts.
+- **On resume**, run `python3 scripts/emit.py --dir ./.jev-loop/live/ control` — the human's
+  reordered queue or stop request. Read it **at step boundaries only, never polled**.
+
+```bash
+python3 scripts/emit.py --dir ./.jev-loop/live/ feed --kind note --stage step8 \
+  --status 미확인 --title "credit audit table" \
+  --plain "코드를 한 줄씩 살펴봤어요. 이상한 곳이 하나 보였지만 아직 확실하지 않아요."
+python3 scripts/emit.py --dir ./.jev-loop/live/ queue --id exp-04 --state next \
+  --why "cheaper than the sweep" --how "one seed, 50 problems" --pass-criterion "+3pt or more"
+```
+
+Statistics shown on the site are **limited to the questions in `site.config.json`**, and
+each chart carries a **one-line takeaway plus its status**. A chart with no takeaway is not
+published.
+
+## Research site template
+
+`assets/research-site/` holds the reader-facing site: three tabs — **자료 / 통계 / 라이브** —
+with a week selector, reading `trials.json`, `stats.json`, `feed.jsonl`, `loop.json`,
+`queue.json` and `site.config.json`. Its `README.md` is the data contract; the template files
+themselves land in a follow-up commit.
 
 ## Running the loop with the agent as judge
 
