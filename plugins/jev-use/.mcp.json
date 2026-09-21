@@ -2,7 +2,14 @@
   "mcpServers": {
     "jev": {
       "command": "npx",
-      "args": ["-y", "jev-use@0.7.1", "serve"]
+      "args": [
+        "-y",
+        "jev-use@0.7.1",
+        "serve"
+      ],
+      "env": {
+        "npm_config_registry": "https://registry.npmjs.org"
+      }
     }
   }
 }
