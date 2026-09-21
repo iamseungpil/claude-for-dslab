@@ -373,6 +373,21 @@ plus `continue`, a `choice` among `{continue, stop_arm, back_to_step_1}`. Any pr
 gate missed, stop rule fired, metric mismatch — sends the loop back to **Step 1**, and
 `experiment-verifier` is the subagent to call when a reported number itself is in doubt.
 
+## Keep the documents true
+
+INTENT, design/plan, and any skill text the project relies on are updated **in the same
+step** as the change that makes them stale, never after: goals/contract change → **INTENT
+first** (quote + date), then design; a gate/stop rule/evaluator changes → a dated **design
+amendment**, before implementation; implementation deviates from `.jev-loop/plan.md` → the
+plan is amended with the reason before Step 8's audit; a lesson that generalises beyond this
+project → a skill PR.
+
+**Every step boundary ends with a 3-line check:** INTENT reflects the owner's latest words ·
+design/plan reflect what is actually being run · site pipeline/queue reflect the current
+step. Any "no" blocks the next step. Pass what synced as `--docs-synced
+intent,design,plan,site` to `--record`; with `--emit` on, a missing/incomplete list adds a
+warning sentence to the verdict's `plain`.
+
 ## Live record
 
 The loop is watched while it runs, so it writes as it goes. `scripts/emit.py` keeps

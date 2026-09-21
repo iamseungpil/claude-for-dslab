@@ -519,6 +519,14 @@ def vkind(v: dict) -> str:
             "choice" if v["id"] in CHOICE_IDS else "noul")
 
 
+DOCS_SYNCED_KEYS = ("intent", "design", "plan", "site")
+
+
+def docs_synced_of(a) -> list[str]:
+    raw = getattr(a, "docs_synced", None)
+    return sorted({s.strip() for s in raw.split(",") if s.strip()}) if raw else []
+
+
 def record(a, rows: list) -> None:
     """Append one audit-state line to <out>/STATE.json.history; never delete entries.
 
@@ -541,6 +549,7 @@ def record(a, rows: list) -> None:
         "choice": {v["id"]: v.get("answer") for v in vs if vkind(v) == "choice"},
         "backend": next((r.get("backend") for _, r in rows if r.get("backend")), None),
         "escalated": sum(1 for v in vs if v.get("escalate")),
+        "docs_synced": docs_synced_of(a),
         "timestamp": datetime.datetime.now().isoformat(timespec="seconds")}
     st.setdefault("history", []).append(row)
     p.parent.mkdir(parents=True, exist_ok=True)
@@ -570,6 +579,9 @@ def live_verdict(a, rows: list) -> None:
     plain = next((r.get("plain") for _, r in rows if r.get("plain")), None) or (
         f"심판이 {len(vs)}가지를 확인했고 {len(bad)}가지가 기준에 못 미쳤어요. "
         + ("그래서 앞 단계로 돌아가요." if bad else "그래서 다음 단계로 가요."))
+    unsynced = sorted(set(DOCS_SYNCED_KEYS) - set(docs_synced_of(a)))
+    if unsynced:
+        plain += (f" 문서가 최신인지 확인하지 않았어요: {', '.join(unsynced)}.")[:400 - len(plain)]
     live.feed(EMIT, "verdict", a.cmd, verdict_title(a.cmd, (n for n, _ in rows)), plain,
               body="\n".join(f"{NUMBERS_KO.get(k, k)}({k})={x:.2f} — "
                              f"{by[k].get('reason') or by[k].get('evidence') or ''}"
@@ -738,6 +750,10 @@ def main() -> None:
                     " appends a `verdict` line to DIR/feed.jsonl and patches DIR/loop.json."
                     " With --judge agent the verdicts file must carry a top-level \"plain\"")
     ap.add_argument("--step", type=int, help="loop step this judgment belongs to")
+    ap.add_argument("--docs-synced", metavar="intent,design,plan,site",
+                    help="comma list of documents confirmed in sync with this step's change;"
+                         " stored in STATE.json. Missing or incomplete + --emit adds a warning"
+                         " sentence to the emitted verdict's plain text")
     ap.add_argument("--record", action="store_true", help="append {step, subcommand, targets,"
                     " min_property, max_bug, scores, choice, backend, escalated, timestamp} to"
                     " <out>/STATE.json.history; an unreachable judgment appends nothing")

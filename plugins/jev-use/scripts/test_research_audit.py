@@ -374,11 +374,39 @@ def test_emit_integration() -> None:
               "the feed is append-only")
 
 
+def test_docs_synced() -> None:
+    print("--docs-synced flag: stored + warns when incomplete")
+    with tempfile.TemporaryDirectory() as t:
+        d = Path(t)
+        args = bed(d) + ["--emit", "live", "--step", "8", "--docs-synced", "intent,design",
+                          "--record", "modules", "--files", "credit.py"]
+        run(args, d)
+        answer(d, "credit", plain="이번 판정은 정상이에요.")
+        p = run(args, d)
+        check(p.returncode == 0, f"the run succeeds (got {p.returncode})")
+        hist = json.loads((d / "aud" / "STATE.json").read_text())["history"]
+        check(hist[-1]["docs_synced"] == ["design", "intent"],
+              "docs_synced is stored on the history row, sorted")
+        line = json.loads((d / "live" / "feed.jsonl").read_text().splitlines()[-1])
+        check("plan" in line["plain"] and "site" in line["plain"],
+              "an incomplete docs_synced list warns in the emitted plain text")
+
+        d2 = Path(tempfile.mkdtemp())
+        args2 = bed(d2) + ["--emit", "live", "--step", "8", "--docs-synced",
+                           "intent,design,plan,site", "modules", "--files", "credit.py"]
+        run(args2, d2)
+        answer(d2, "credit", plain="이번 판정은 정상이에요.")
+        run(args2, d2)
+        line2 = json.loads((d2 / "live" / "feed.jsonl").read_text().splitlines()[-1])
+        check("확인하지 않았어요" not in line2["plain"],
+              "a complete docs_synced list carries no warning")
+
+
 def main() -> None:
     for fn in (test_scope, test_record_summary, test_unreachable, test_agent_round_trip,
                test_design_questions, test_pipeline_contract_heading, test_impl_questions,
                test_audit_extras, test_plan_coverage_gate, test_verdict_title_and_labels,
-               test_emit_integration):
+               test_emit_integration, test_docs_synced):
         fn()
     print(f"\n{'FAILED: ' + '; '.join(FAILS) if FAILS else 'all checks passed'}")
     raise SystemExit(1 if FAILS else 0)
