@@ -121,6 +121,16 @@ def test_cli() -> None:
         check(p.returncode == 2 and "plain" in p.stderr, "the cli rejects jargon with a hint")
 
 
+def test_feed_carries_node() -> None:
+    """--node 로 적은 상자 이름이 줄에 남아야 보드가 그 상자의 기록만 골라 보일 수 있다."""
+    with tempfile.TemporaryDirectory() as t:
+        d = Path(t)
+        line = em.feed(str(d), "metric", "10", "회수 2/4", OK, node="harness")
+        check(line["node"] == "harness", "a feed line remembers which board box it belongs to")
+        saved = json.loads((d / "feed.jsonl").read_text().splitlines()[-1])
+        check(saved["node"] == "harness", "the node id survives the round trip to feed.jsonl")
+
+
 def test_queue_extras_and_node() -> None:
     """queue 는 지도에 오를 칸(title·goal·question·exp)을 함께 적고, node 는 보드 상자를 고친다."""
     with tempfile.TemporaryDirectory() as t:
@@ -148,7 +158,8 @@ def test_queue_extras_and_node() -> None:
 
 
 def main() -> None:
-    for fn in (test_plain, test_feed, test_loop_and_queue, test_queue_extras_and_node, test_cli):
+    for fn in (test_plain, test_feed, test_loop_and_queue, test_feed_carries_node,
+               test_queue_extras_and_node, test_cli):
         fn()
     print(f"\n{'FAILED: ' + '; '.join(FAILS) if FAILS else 'all checks passed'}")
     raise SystemExit(1 if FAILS else 0)

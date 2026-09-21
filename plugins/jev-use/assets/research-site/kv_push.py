@@ -59,7 +59,7 @@ def payload(root, cfg):
     if os.path.exists(built):
         with open(built) as f:
             base = json.load(f)
-        for k in ("panels", "map", "now", "kinds_ko"):
+        for k in ("panels", "map", "now", "kinds_ko", "pipeline", "lint_ok"):
             if k in base:
                 out.setdefault(k, base[k])
     return out

@@ -197,17 +197,37 @@ window.Site = (function () {
     }
   }
 
+  // 헤더의 신선도 — 마지막으로 받은 기록 시각에서 매초 센다. 초록 <1분, 주황 <5분, 그 밖은 회색.
+  S.freshness = {at: null, live: false};
+  function tickFresh() {
+    const el = $("upd");
+    if (!el) return;
+    const f = S.freshness;
+    if (S.frozen) { el.className = "fresh grey"; el.textContent = "● 얼린 보고서"; return; }
+    if (!f.at) { el.className = "fresh grey"; el.textContent = "● 실시간 연결 안 됨 — 배포본 기준"; return; }
+    const secs = Math.max(0, Math.round((Date.now() - f.at) / 1000));
+    el.className = "fresh " + (secs < 60 ? "green" : secs < 300 ? "amber" : "grey");
+    el.textContent = "● " + (secs < 60 ? `${secs}초 전 갱신` : secs < 3600 ? `${Math.round(secs / 60)}분 전 갱신`
+      : `${Math.round(secs / 3600)}시간 전 갱신`) + (f.live ? "" : " · 배포본 기준");
+  }
+  S.markFresh = function (ts, live) {
+    const t = ts ? Date.parse(String(ts).replace(" ", "T")) : NaN;
+    S.freshness = {at: isNaN(t) ? Date.now() : t, live: !!live};
+    tickFresh();
+  };
+  setInterval(tickFresh, 1000);
+
   S.boot = async function () {
     const meta = await load("meta.json");
     if (!meta) return;
     S.meta = meta;
     document.title = meta.title || "연구판";
     $("site-title").textContent = meta.title || "연구판";
-    $("upd").textContent = meta.built_at ? "갱신 " + meta.built_at : "";
-    $("archlinks").innerHTML = (meta.links || []).map((l) => `<a href="${esc(l.href)}">${esc(l.label)}</a>`).join(" · ");
+    tickFresh();
+    S.metaLinks = meta.links || [];
     $("weeksel").innerHTML = `<button data-week="">전체</button>`
-      + (meta.weeks || []).map((w) => `<button data-week="${esc(w.id)}" title="${esc(w.range || "")}">${esc(w.label)}`
-        + (w.legacy ? `<small>${esc(w.legacy)}</small>` : "") + `</button>`).join("");
+      + (meta.weeks || []).map((w) => `<button data-week="${esc(w.id)}" title="${esc(w.range || "")}${w.legacy ? " · " + esc(w.legacy) : ""}">`
+        + `${esc(w.label)}</button>`).join("");
     $("weeksel").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) S.setWeek(b.dataset.week || ""); });
     $("tabs").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) S.setTab(b.dataset.tab); });
     const qs = new URLSearchParams(location.search);
@@ -224,10 +244,12 @@ window.Site = (function () {
       $("frozen").textContent = `이 화면은 ${meta.frozen_at} 에 얼린 보고서입니다 — 그때의 자료만 들어 있고 실시간 갱신을 하지 않습니다.`;
     }
     S.reports = (reports && reports.reports) || [];
-    if (S.reports.length) {
+    {
       $("reportsw").hidden = false;
-      $("reportspop").innerHTML = `<span class="d">주차가 끝날 때 얼려 둔 보고서입니다.</span>`
+      $("reportspop").innerHTML = `<span class="d">주차가 끝날 때 얼려 둔 보고서와 옛 화면입니다.</span>`
         + S.reports.map((r) => `<a class="ck" href="${esc(r.path)}">${esc(r.label)}<em> ${esc(r.frozen_at || "")}</em></a>`).join("")
+        + `<span class="g">옛 화면</span>`
+        + (S.metaLinks || []).map((l) => `<a class="ck" href="${esc(l.href)}">${esc(l.label)}</a>`).join("")
         + (S.frozen ? `<a class="ck" href="/">지금 보고서로 →</a>` : "");
       $("reportsbtn").addEventListener("click", () => $("reportspop").classList.toggle("on"));
       document.addEventListener("click", (e) => { if (!e.target.closest("#reportsw")) $("reportspop").classList.remove("on"); });

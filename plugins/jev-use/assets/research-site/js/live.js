@@ -7,30 +7,25 @@
 (function () {
   const S = window.Site, {$, esc, num} = S;
   const ST = {확정: "ok", 미확인: "un", 잡음: "rt", 기각: "rt", 남음: "ok", "답 나옴": "ok", "진행 중": "run", 막힘: "un"};
-  let kind = "", node = "", timer = null, ctl = null, ctlErr = "";
+  let kind = "", node = "", timer = null, ctl = null, ctlErr = "", openFeed = false;
 
   const pill = (t) => t ? `<span class="st ${ST[t] || "un"}">${esc(t)}</span>` : "";
   const when = (ts) => String(ts || "").replace("T", " ").replace("Z", "").slice(0, 16);
   const ko = (k) => ((S.live && S.live.kinds_ko) || {})[k] || k || "기타";
   const jsonBlock = (label, obj) => `<details class="full"><summary>${esc(label)}</summary><pre>${esc(JSON.stringify(obj, null, 1))}</pre></details>`;
 
-  /* ① 지금 하는 일 */
+  /* ① 지금 하는 일 — 한 줄. 자세한 것은 접어 둔다. */
+  let openNow = false;
   function nowBar(L) {
     const n = L.now || {};
-    const run = n.running || [];
-    const nxt = ((L.queue || {}).experiments || []).filter((e) => e.phase === "next");
-    const step = (x) => `<div class="sub2">· ${esc(x.title)}${x.result ? ` — ${esc(x.result)}` : ""}</div>`;
-    const body = run.length ? run.map((e) => `<b>${esc(e.name)}</b> ${pill(e.state)}`
-      + `<dl><dt>왜</dt><dd>${esc(e.intent || "-")}</dd><dt>어떻게</dt><dd>${esc(e.method || "-")}</dd>`
-      + `<dt>통과 기준</dt><dd>${esc(e.gate || "-")}</dd>`
-      + (e.result ? `<dt>여기까지</dt><dd>${esc(e.result)}</dd>` : "") + `</dl>`
-      + ((e.steps_done || []).length ? `<div class="note" style="color:inherit">끝난 단계: ${(e.steps_done || []).map(step).join("")}</div>` : "")
-      ).join("<hr style='border:0;border-top:1px solid rgba(128,128,128,.3);margin:8px 0'>")
-      : `<b>지금 돌고 있는 실험 없음</b>` + (nxt.length
-          ? `<div class="note" style="color:inherit">다음: ${esc(nxt[0].name)}${nxt[0].intent ? ` — ${esc(nxt[0].intent)}` : ""}</div>` : "");
-    const last = n.latest ? `<div class="last"><b>가장 새 기록</b> · ${esc(when(n.latest.ts))} · ${esc(n.latest.author || "")}<br>`
-      + `${esc(n.latest.plain || n.latest.title || "")}</div>` : "";
-    return `<div class="nowbar"><h2>지금 하는 일</h2>${body}${last}</div>`;
+    const head = n.headline || "지금 돌고 있는 걸음이 없습니다.";
+    const run = (n.running || [])[0];
+    const more = openNow && run ? `<dl><dt>왜</dt><dd>${esc(run.intent || "-")}</dd>`
+      + `<dt>어떻게</dt><dd>${esc(run.method || "-")}</dd><dt>통과 기준</dt><dd>${esc(run.gate || "-")}</dd>`
+      + (run.result ? `<dt>여기까지</dt><dd>${esc(run.result)}</dd>` : "") + `</dl>`
+      + (n.detail ? `<div class="last">${esc(n.detail)}</div>` : "") : "";
+    return `<div class="nowbar one"><span class="tagnow">지금</span><b>${esc(head)}</b>`
+      + `<button class="tb" id="nowmore">${openNow ? "접기" : "자세히"}</button>${more}</div>`;
   }
 
   /* ② 진행 중인 실험 패널 */
@@ -157,7 +152,11 @@
     if (!feed || !feed.length) return `<section><h2>기록</h2><p class="miss">자료 없음 — <code>feed.jsonl</code></p></section>`;
     const kinds = {};
     for (const f of feed) kinds[f.kind || "기타"] = (kinds[f.kind || "기타"] || 0) + 1;
-    const shown = feed.filter((f) => (!kind || (f.kind || "기타") === kind) && (!node || (f.node || f.exp) === node));
+    const nd = S.board.node;
+    let shown = feed.filter((f) => (!kind || (f.kind || "기타") === kind)
+      && (!nd || f.node === nd || f.exp === nd || (f.nodes || []).includes(nd)));
+    const total = shown.length;
+    if (!openFeed) shown = shown.slice(0, 3);
     const tiles = `<div class="kinds"><button class="kt${kind ? "" : " on"}" data-kind="">전체<b>${num(feed.length)}</b></button>`
       + Object.entries(kinds).map(([k, n]) => `<button class="kt${kind === k ? " on" : ""}" data-kind="${esc(k)}">${esc(ko(k))}<b>${num(n)}</b></button>`).join("") + `</div>`;
     const items = shown.map((f) => {
@@ -169,7 +168,10 @@
         + (f.plain ? `<p class="plain">${esc(f.plain)}</p>` : "") + body
         + (nums || links ? `<p class="nums">${nums}${nums && links ? " · " : ""}${links}</p>` : "") + `</li>`;
     }).join("");
-    return `<section><h2>기록 <span class="tag">새것이 위</span></h2>${tiles}<ul class="feed">${items || `<li class="empty">이 조건의 기록이 없습니다.</li>`}</ul></section>`;
+    return `<section><h2>기록 <span class="tag">새것이 위</span>${nd ? `<span class="tag">고른 걸음만</span>` : ""}</h2>`
+      + (openFeed ? tiles : "")
+      + `<ul class="feed">${items || `<li class="empty">이 조건의 기록이 없습니다.</li>`}</ul>`
+      + `<button class="tb" id="feedmore">${openFeed ? "접기" : `전체 보기 (${num(total)}줄)`}</button></section>`;
   }
   function queueSection(q) {
     if (!q || !q.experiments) return "";
@@ -208,13 +210,13 @@
     const feed = (L.feed || []).filter((f) => !S.week || !f.week || f.week === S.week);
     const B = S.board;
     wrap.innerHTML = nowBar(L)
-      + `<p class="note" style="margin:0 2px 8px">마지막 갱신 ${esc(when(L.updated) || "알 수 없음")}`
-      + (S.liveSource ? ` · ${esc(S.liveSource)}` : "") + `</p>`
-      + `<section><h2>연구 전체 — 어디까지 왔나</h2>${B.render(L.pipeline, {})}${B.drawer(L.pipeline)}</section>`
+      + `<section>${B.render(L.pipeline, {id: "pbwrap-live"})}${B.drawer(L.pipeline)}</section>`
       + (B.node ? "" : (L.panels || []).map(panel).join(""))
       + feedSection(feed)
       + `<details class="rnd"><summary>글로 보기 — 실험 큐 · 가설 창고 · 연구 한 바퀴</summary><div class="rb">`
       + loopStrip(L.loop) + queueSection(L.queue) + bankSection(L.bank) + `</div></details>`;
+    requestAnimationFrame(() => S.board.drawArrows(L.pipeline, "pbwrap-live"));
+    setTimeout(() => S.board.drawArrows(L.pipeline, "pbwrap-live"), 120);   // 레이아웃이 끝난 뒤 한 번 더
   };
 
   /* 실시간 — /api/live 가 있으면 10초마다 갈아 끼운다. 없으면 정적 파일 그대로 둔다(조용히). */
@@ -226,11 +228,13 @@
       const d = await r.json();
       if (!d || !d.feed) return;
       Object.assign(S.live, d);
-      S.liveSource = "실시간(KV) · " + when(d.updated || "");
+      S.liveSource = "실시간";
+      S.markFresh(d.updated, true);
       S.live_render();
-    } catch { /* 정적 자료로 그대로 둔다 */ }
+    } catch { S.markFresh(null, false); }
   }
   S.live_start = function () {
+    if (!S.freshness.at && S.live && S.live.updated) S.markFresh(S.live.updated, false);
     if (S.frozen) return;           // 얼린 보고서는 그때의 기록만 보여 준다
     if (!timer) timer = setInterval(poll, 10000);
     poll();
@@ -258,6 +262,8 @@
 
   document.addEventListener("click", (e) => {
     if (S.tab !== "live") return;
+    if (e.target.closest("#nowmore")) { openNow = !openNow; S.live_render(); return; }
+    if (e.target.closest("#feedmore")) { openFeed = !openFeed; S.live_render(); return; }
     if (S.board.onClick(e)) { S.live_render(); return; }
     const cs = e.target.closest("[data-case]");
     if (cs) { S.list.openCase(cs.dataset.case, cs.dataset.model, JSON.parse(cs.dataset.patch || "{}")); return; }

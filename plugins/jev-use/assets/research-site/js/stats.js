@@ -68,12 +68,14 @@
       ? [...cards].reverse().map((c) => `<p class="tk"><b>${esc(c.week)}주차</b> — ${esc(c.intent)}</p>`).join("")
       : `<p class="empty">이 주차의 요약이 아직 없습니다.</p>`;
     wk.innerHTML = `<section><h2>주차 요약 — 어디까지 왔나${S.week ? ` · ${esc(S.week)}주차` : ""}</h2>`
-      + (P ? B.render(P, {dimUnless: S.week, showLine: true}) + B.drawer(P) : `<p class="miss">자료 없음 — <code>pipeline.json</code></p>`)
+      + (P ? B.render(P, {dimUnless: S.week, showLine: true, id: "pbwrap-week"}) + B.drawer(P) : `<p class="miss">자료 없음 — <code>pipeline.json</code></p>`)
       + (S.week ? `<p class="note">진한 상자가 이 주차에 실제로 움직인 걸음입니다.</p>` : "")
       + intro
       + `<details class="rnd"><summary>글로 보기 — 주차 카드(한 일 · 결과 · 근거 파일 · 철회)</summary><div class="rb">`
       + [...cards].reverse().map(weekCard).join("") + `<p class="note">${esc(S.stats.weekly_note || "")}</p>`
       + `</div></details></section>`;
+    if (P) requestAnimationFrame(() => S.board.drawArrows(P, "pbwrap-week"));
+    setTimeout(() => S.board.drawArrows(P, "pbwrap-week"), 120);   // 레이아웃이 끝난 뒤 한 번 더
     const blocks = (S.stats.blocks || []).filter((b) => !S.week || !b.week || b.week === S.week);
     wrap.innerHTML = `<section style="padding-bottom:6px"><h2>질문 ${num(blocks.length)}개 — 숫자는 빌드 때 파일에서 직접 센 값입니다`
       + (S.stats.built_at ? ` · 갱신 ${esc(S.stats.built_at)}` : "") + `</h2></section>`

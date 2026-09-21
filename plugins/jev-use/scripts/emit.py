@@ -79,7 +79,7 @@ def mirror(line: dict) -> None:
 
 def feed(d: str, kind: str, stage: str, title: str, plain: str = "", week: str = "",
          body: str = "", status: str = "", numbers: dict | None = None,
-         links: list | None = None, author: str = "agent") -> dict:
+         links: list | None = None, author: str = "agent", node: str = "") -> dict:
     """Validate one feed line and append it to <d>/feed.jsonl."""
     if kind not in KINDS:
         die(f"kind {kind!r} is unknown", "pick one of " + "/".join(KINDS))
@@ -89,7 +89,7 @@ def feed(d: str, kind: str, stage: str, title: str, plain: str = "", week: str =
         die("a note needs a status", "pass --status " + "|".join(STATUSES))
     if status and status not in STATUSES:
         die(f"status {status!r} is unknown", "use " + "|".join(STATUSES))
-    line = {"ts": utc(), "week": week, "kind": kind, "stage": stage, "title": title,
+    line = {"ts": utc(), "week": week, "kind": kind, "stage": stage, "node": node, "title": title,
             "plain": plain, "numbers": numbers or {}, "links": links or [], "author": author}
     line.update({k: v for k, v in (("body", body), ("status", status)) if v})
     p = Path(d) / "feed.jsonl"
@@ -176,6 +176,7 @@ def main() -> None:
     f.add_argument("--status", default="", choices=("", *STATUSES))
     f.add_argument("--numbers", default="{}", help='JSON object of {name: value}')
     f.add_argument("--links", nargs="*", default=[])
+    f.add_argument("--node", default="", help="board node id this line belongs to")
     lp = sub.add_parser("loop", help="patch loop.json")
     lp.add_argument("--scores", default="{}")
     q = sub.add_parser("queue", help="upsert one experiment in queue.json")
@@ -196,7 +197,7 @@ def main() -> None:
     if a.cmd == "control":
         raise SystemExit(control(a.dir))
     out = (feed(a.dir, a.kind, a.stage, a.title, a.plain, a.week, a.body, a.status,
-                json.loads(a.numbers), a.links, a.author) if a.cmd == "feed" else
+                json.loads(a.numbers), a.links, a.author, a.node) if a.cmd == "feed" else
            loop(a.dir, design=a.design, step=a.step, status=a.status,
                 scores=json.loads(a.scores), rule=a.rule, cause=a.cause, back_to=a.back_to)
            if a.cmd == "loop" else
