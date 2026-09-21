@@ -165,8 +165,11 @@
       const N = Object.entries(f.numbers || {});
       // 판정 줄은 항목이 열 개가 넘는다 — 기본은 '몇 개가 기준에 못 미쳤나'만 적고 숫자는 접는다.
       const fold = f.kind === "verdict" && N.length > 3;
-      const under = N.filter(([, v]) => typeof v === "number" && v < 0.7).length;
-      const nums = fold ? `${N.length}개 항목 중 ${under}개 기준 미달`
+      // 통과 기준은 스킬 규칙 그대로: 0~1 항목은 0.5 미만이면 미달 (점수형 항목은 세지 않는다).
+      const unit = N.filter(([, v]) => typeof v === "number" && v <= 1);
+      const under = unit.filter(([, v]) => v < 0.5).length;
+      const low = unit.length ? Math.min(...unit.map(([, v]) => v)) : null;
+      const nums = fold ? (under ? `${N.length}개 항목 중 ${under}개 기준 미달` : `${N.length}개 항목 모두 기준 통과 · 가장 낮은 항목 ${low}`)
         : N.map(([k, v]) => `${esc(k)} ${esc(String(v))}`).join(" · ");
       const links = (f.links || []).map((l) => `<a href="${esc(l.href)}">${esc(l.label)}</a>`).join(" · ");
       const detail = (f.body ? `<p class="body">${md(f.body)}</p>` : "")
