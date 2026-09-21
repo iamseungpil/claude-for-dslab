@@ -261,6 +261,10 @@ def main():
             p = rel(path)
             live[name] = load_jsonl(p) if p.endswith(".jsonl") else load_json(p)
 
+    # 큰 원문(조회 기록·카드·판정·보고서)은 따로 떼어 data/artifacts/ 에 둔다 — 화면이 필요할 때만 받는다.
+    if hook and hasattr(hook, "artifacts"):
+        n_art = hook.artifacts(root, cfg, out_dir)
+        print(f"  artifacts: {n_art}개")
     dump(out_dir, "meta.json", meta)
     dump(out_dir, "rows.json", {"built_at": BUILT, "rows": rows})
     dump(out_dir, "stats.json", {"built_at": BUILT, "blocks": blocks,

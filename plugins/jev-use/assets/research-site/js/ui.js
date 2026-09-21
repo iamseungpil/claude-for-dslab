@@ -162,6 +162,7 @@ window.Site = (function () {
     const qs = S.list ? S.list.qsWith() : new URLSearchParams();
     if (S.tab !== "data") qs.set("tab", S.tab);
     if (S.week) qs.set("week", S.week);
+    if (S.board && S.board.node) qs.set("node", S.board.node);
     const url = location.pathname + (qs.toString() ? "?" + qs.toString().replace(/%2C/g, ",") : "");
     if (push) history.pushState({}, "", url); else history.replaceState({}, "", url);
   };
@@ -231,6 +232,7 @@ window.Site = (function () {
       $("reportsbtn").addEventListener("click", () => $("reportspop").classList.toggle("on"));
       document.addEventListener("click", (e) => { if (!e.target.closest("#reportsw")) $("reportspop").classList.remove("on"); });
     }
+    if (qs.get("node") && S.board) S.board.node = qs.get("node");
     S.list.init(qs);
     S.setTab(qs.get("tab") || "stats", true);
     S.writeUrl();

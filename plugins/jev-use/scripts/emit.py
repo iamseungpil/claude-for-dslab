@@ -19,6 +19,8 @@ from pathlib import Path
 KINDS = ("event", "metric", "note", "decision", "error", "verdict")
 STATUSES = ("확정", "미확인", "잡음")
 NEEDS_PLAIN = ("metric", "note", "decision", "verdict", "error")
+NODE_STATES = ("done", "running", "failed", "returned", "next", "blocked")
+MODULE_STATES = ("done", "running", "waiting", "failed")
 QUEUE_STATES = ("past", "running", "next")
 IDPAT = re.compile(r"\b[A-Z]{1,3}\d{1,3}\b")            # G27, T3, R1
 STEPPAT = re.compile(r"\bstep\s*\d+|\d+\s*단계", re.I)   # Step 8, 8단계
@@ -123,6 +125,39 @@ def queue(d: str, eid: str, state: str, **fields) -> dict:
     return patch(Path(d) / "queue.json", up)
 
 
+def node(d: str, nid: str, state: str = "", module: str = "", module_state: str = "",
+         one_line: str = "", number: str = "") -> dict:
+    """Patch one box (and optionally one of its modules) in pipeline.json.
+
+    The board reads pipeline.json; this is how a running step says where it is without a human
+    editing the file. A key this call does not name keeps its previous value."""
+    if state and state not in NODE_STATES:
+        die(f"state {state!r} is unknown", "use " + "|".join(NODE_STATES))
+    if module_state and module_state not in MODULE_STATES:
+        die(f"module state {module_state!r} is unknown", "use " + "|".join(MODULE_STATES))
+
+    def up(cur: dict) -> None:
+        nodes = cur.setdefault("nodes", [])
+        row = next((r for r in nodes if r.get("id") == nid), None)
+        if row is None:
+            nodes.append(row := {"id": nid, "label": nid})
+        if state:
+            row["state"] = state
+        if one_line:
+            row["one_line"] = one_line
+        if number:
+            row["number"] = number
+        if module:
+            mods = row.setdefault("modules", [])
+            m = next((x for x in mods if x.get("id") == module), None)
+            if m is None:
+                mods.append(m := {"id": module, "label": module})
+            if module_state:
+                m["state"] = module_state
+        cur["updated"] = utc()
+    return patch(Path(d) / "pipeline.json", up)
+
+
 def control(d: str) -> int:
     """<d>/control.json is the human's note back: a reordered queue or a stop request."""
     p = Path(d) / "control.json"
@@ -146,9 +181,15 @@ def main() -> None:
     q = sub.add_parser("queue", help="upsert one experiment in queue.json")
     q.add_argument("--id", required=True); q.add_argument("--state", required=True,
                                                           choices=QUEUE_STATES)
+    n = sub.add_parser("node", help="patch one box (and a module) in pipeline.json")
+    n.add_argument("--id", required=True)
+    n.add_argument("--state", default="", choices=("", *NODE_STATES))
+    n.add_argument("--module", default="")
+    n.add_argument("--module-state", default="", choices=("", *MODULE_STATES))
     sub.add_parser("control", help="print control.json if present (step boundaries only)")
     for p, opts in ((f, "stage week body author"), (lp, "design step status rule cause back-to"),
-                    (q, "why how pass-criterion result")):
+                    (q, "why how pass-criterion result title goal question exp"),
+                    (n, "one-line number")):
         for o in opts.split():
             p.add_argument("--" + o, default="agent" if o == "author" else "")
     a = ap.parse_args()
@@ -159,8 +200,10 @@ def main() -> None:
            loop(a.dir, design=a.design, step=a.step, status=a.status,
                 scores=json.loads(a.scores), rule=a.rule, cause=a.cause, back_to=a.back_to)
            if a.cmd == "loop" else
-           queue(a.dir, a.id, a.state, why=a.why, how=a.how,
-                 pass_criterion=a.pass_criterion, result=a.result))
+           node(a.dir, a.id, a.state, a.module, a.module_state, a.one_line, a.number)
+           if a.cmd == "node" else
+           queue(a.dir, a.id, a.state, why=a.why, how=a.how, pass_criterion=a.pass_criterion,
+                 result=a.result, title=a.title, goal=a.goal, question=a.question, exp=a.exp))
     print(json.dumps(out, ensure_ascii=False))
 
 

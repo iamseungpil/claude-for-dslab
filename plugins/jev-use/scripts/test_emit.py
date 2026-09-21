@@ -121,8 +121,34 @@ def test_cli() -> None:
         check(p.returncode == 2 and "plain" in p.stderr, "the cli rejects jargon with a hint")
 
 
+def test_queue_extras_and_node() -> None:
+    """queue 는 지도에 오를 칸(title·goal·question·exp)을 함께 적고, node 는 보드 상자를 고친다."""
+    with tempfile.TemporaryDirectory() as t:
+        d = Path(t)
+        em.queue(str(d), "round-6", "running", title="6바퀴", goal="g1", question="q_auto",
+                 exp="e12", why="회수율을 다시 잰다", how="", pass_criterion="", result="")
+        row = json.loads((d / "queue.json").read_text())["items"][-1]
+        check(row["title"] == "6바퀴" and row["goal"] == "g1" and row["question"] == "q_auto"
+              and row["exp"] == "e12" and row["state"] == "running",
+              "queue carries title/goal/question/exp so the new item lands on the map")
+
+        em.node(str(d), "harness", state="running", one_line="5바퀴까지 2/4 회수", number="2 / 4")
+        em.node(str(d), "harness", module="judge", module_state="running")
+        doc = json.loads((d / "pipeline.json").read_text())
+        box = next(n for n in doc["nodes"] if n["id"] == "harness")
+        check(box["state"] == "running" and box["number"] == "2 / 4"
+              and box["one_line"] == "5바퀴까지 2/4 회수", "node patches the box in place")
+        check(next(m for m in box["modules"] if m["id"] == "judge")["state"] == "running",
+              "node creates and patches a module inside the box")
+        check(bool(doc.get("updated")), "node stamps pipeline.json with a time")
+
+        p = run(["node", "--id", "x", "--state", "우물쭈물"], d)
+        check(p.returncode == 2 and "state" in p.stderr,
+              "an unknown box state is refused — the board must not colour a lie")
+
+
 def main() -> None:
-    for fn in (test_plain, test_feed, test_loop_and_queue, test_cli):
+    for fn in (test_plain, test_feed, test_loop_and_queue, test_queue_extras_and_node, test_cli):
         fn()
     print(f"\n{'FAILED: ' + '; '.join(FAILS) if FAILS else 'all checks passed'}")
     raise SystemExit(1 if FAILS else 0)
