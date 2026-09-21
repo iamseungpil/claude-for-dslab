@@ -83,6 +83,25 @@
         "html"
       ],
       "source": "./plugins/eli5"
+    },
+    {
+      "name": "jev-use",
+      "description": "Hand steps needing no text output (labelling/triage, pass-fail checks, PreToolUse safety gating) to Jev, a fast typed-judgment model, instead of spending LLM tokens on them. Requires a TypeSafe/OpenRouter/Vercel AI Gateway API key; JEV_BACKEND=mock runs with no network calls.",
+      "version": "0.7.1",
+      "author": {
+        "name": "shitianfang"
+      },
+      "homepage": "https://github.com/shitianfang/jev-use",
+      "repository": "https://github.com/shitianfang/jev-use",
+      "license": "MIT",
+      "keywords": [
+        "jev",
+        "typesafe-ai",
+        "mcp",
+        "judgment",
+        "router"
+      ],
+      "source": "./plugins/jev-use"
     }
   ]
 }

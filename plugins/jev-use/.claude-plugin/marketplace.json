@@ -1,0 +1,15 @@
+{
+  "name": "jev-use",
+  "description": "The typed handoff between a coding agent and Jev: steps needing no text output go to the judgment model, everything else stays with the LLM.",
+  "owner": {
+    "name": "shitianfang",
+    "url": "https://github.com/shitianfang"
+  },
+  "plugins": [
+    {
+      "name": "jev-use",
+      "description": "Hand the steps needing no text output to Jev: jev_judge / jev_gate MCP tools, a routing skill, and typed escalation back to the LLM",
+      "source": "./"
+    }
+  ]
+}

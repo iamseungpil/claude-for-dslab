@@ -21,6 +21,7 @@ top-level `skills/`·`agents/`·`commands/`(install.sh 심링크 방식)와 별�
 /plugin install understand-anything@dslab
 /plugin install superpowers@dslab
 /plugin install eli5@dslab
+/plugin install jev-use@dslab
 ```
 
 | 플러그인 | 설명 |
@@ -29,6 +30,7 @@ top-level `skills/`·`agents/`·`commands/`(install.sh 심링크 방식)와 별�
 | `understand-anything` | 코드베이스를 인터랙티브 knowledge graph로 분석·시각화·설명 (architecture / domain / onboarding / diff / dashboard). `/understand`, `/understand-explain`, `/understand-dashboard` 등. ([Lum1104/Understand-Anything](https://github.com/Lum1104/Understand-Anything) v2.7.6, MIT — `plugins/understand-anything/`에 벤더링) |
 | `superpowers` | Claude Code 코어 스킬 라이브러리: TDD, 체계적 디버깅, 브레인스토밍, plan 작성, 병렬 에이전트, git worktree, 코드 리뷰 등 14개 워크플로 스킬. ([obra/superpowers](https://github.com/obra/superpowers) v5.1.0, MIT — `plugins/superpowers/`에 벤더링) |
 | `eli5` | 아무 주제나 다섯 살한테 설명하듯 풀어주는 스킬. `/eli5 <주제>`를 치면 큰 그림 위주에 글자는 최소로 줄인 HTML 설명 페이지를 만든다. ([anthropics/claude-plugins-community](https://github.com/anthropics/claude-plugins-community) v1.0.0, MIT — `plugins/eli5/`에 벤더링) |
+| `jev-use` | 글을 쓰지 않아도 되는 판단(라벨링·트리아지, 빌드/테스트 성공 여부 체크, PreToolUse 안전성 게이팅 등)을 저렴하고 빠른 전용 판단 모델 Jev에게 위임하는 라우터. `jev_judge`/`jev_gate` MCP 툴 + 라우팅 스킬 제공. **TypeSafe/OpenRouter/Vercel AI Gateway API 키 중 하나가 있어야 실제로 판단을 수행하며, 키가 없으면 `JEV_BACKEND=mock`으로만 동작(네트워크 호출 없음)**. ([shitianfang/jev-use](https://github.com/shitianfang/jev-use) v0.7.1, MIT — `plugins/jev-use/`에 벤더링) |
 
 ## Skills (사용자 호출)
 

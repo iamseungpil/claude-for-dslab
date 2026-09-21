@@ -1,0 +1,400 @@
+<!doctype html>
+<!--
+  FIXTURE — synthetic news-article page for bench/examples/strip.mjs.
+
+  Everything here is invented: the outlet, the byline, the people quoted, the
+  numbers. Nothing is a record of a real publication or a real person. The page
+  exists so the de-clutter demo is deterministic and cannot rot when a live
+  site redesigns.
+
+  Every enumerable block carries data-truth="article|clutter|chrome" — the
+  ground truth strip.mjs scores against. strip.mjs reads that attribute ONLY
+  for scoring and asserts it never reaches the state sent to Jev.
+    article — part of the story the reader came for
+    clutter — ad, banner, popup, promo, other junk
+    chrome  — site furniture (masthead, footer): defensible either way,
+              so strip.mjs reports these verdicts but does not score them
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Coffee rust climbs the cool slopes — Northline Daily (fixture)</title>
+<style>
+  :root {
+    --ink: #17191c;
+    --mute: #5b6168;
+    --rule: #dcdfe3;
+    --ad: #fff6d6;
+    --ad-edge: #e0b000;
+    --promo: #ffe9ef;
+    --promo-edge: #e0607f;
+    --brand: #0b3d5c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: #fff;
+    color: var(--ink);
+    font: 16px/1.62 Georgia, "Times New Roman", serif;
+  }
+  .sans { font-family: Helvetica, Arial, sans-serif; }
+
+  /* ---------- site furniture (chrome) ---------- */
+  header.masthead {
+    display: block;
+    border-bottom: 3px solid var(--brand);
+    padding: 12px 24px 10px;
+  }
+  .masthead .logo {
+    font: 700 24px/1 Helvetica, Arial, sans-serif;
+    letter-spacing: .06em;
+    color: var(--brand);
+    display: inline-block;
+  }
+  .masthead .fixture-tag {
+    font: 11px/1 Helvetica, Arial, sans-serif;
+    color: #8a9099;
+    letter-spacing: .12em;
+    margin-left: 10px;
+  }
+  .masthead nav {
+    font: 13px/1 Helvetica, Arial, sans-serif;
+    color: var(--mute);
+    margin-top: 8px;
+    letter-spacing: .04em;
+  }
+  .masthead nav span { margin-right: 18px; text-transform: uppercase; }
+
+  footer.site-footer {
+    display: block;
+    border-top: 1px solid var(--rule);
+    margin-top: 28px;
+    padding: 18px 24px 26px;
+    font: 12px/1.7 Helvetica, Arial, sans-serif;
+    color: var(--mute);
+  }
+
+  /* ---------- clutter ---------- */
+  .appbar {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    display: block;
+    background: #101318;
+    color: #fff;
+    padding: 13px 24px;
+    font: 14px/1.4 Helvetica, Arial, sans-serif;
+  }
+  .appbar .cta {
+    float: right;
+    background: #ffd54a;
+    color: #101318;
+    font-weight: 700;
+    border-radius: 3px;
+    padding: 3px 12px;
+    margin-top: -2px;
+  }
+
+  .ad {
+    display: block;
+    background: var(--ad);
+    border: 2px dashed var(--ad-edge);
+    text-align: center;
+    font-family: Helvetica, Arial, sans-serif;
+    color: #6a5200;
+  }
+  .ad .slug {
+    display: block;
+    font-size: 10px;
+    letter-spacing: .22em;
+    text-transform: uppercase;
+    color: #8c7000;
+    padding-top: 6px;
+  }
+  .ad .copy { display: block; font-size: 19px; font-weight: 700; padding: 8px 10px 2px; }
+  .ad .sub { display: block; font-size: 12px; padding: 0 10px 8px; }
+  .ad--leaderboard { height: 104px; }
+  .ad--native { text-align: left; border-style: solid; height: 92px; }
+  .ad--native .copy { font-size: 16px; }
+  .ad--square { height: 250px; }
+  .ad--skyscraper { height: 300px; }
+
+  .share-bar {
+    display: block;
+    border-top: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+    padding: 9px 0;
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 13px;
+    color: var(--mute);
+  }
+  .share-bar .pill {
+    display: inline-block;
+    background: #eef1f5;
+    border-radius: 14px;
+    padding: 4px 13px;
+    margin-right: 7px;
+    color: #2b3a4a;
+  }
+
+  .newsletter-inline, .newsletter-modal, .podcast-promo, .sponsored-links, .promoted-grid {
+    font-family: Helvetica, Arial, sans-serif;
+  }
+  .newsletter-inline {
+    display: block;
+    background: #eaf4ff;
+    border-left: 5px solid #2a7fd4;
+    padding: 14px 16px;
+  }
+  .newsletter-inline b { display: block; font-size: 17px; }
+  .newsletter-inline .row { display: block; margin-top: 9px; font-size: 13px; color: var(--mute); }
+  .newsletter-inline .fakefield {
+    display: inline-block; width: 230px; height: 28px;
+    background: #fff; border: 1px solid #b9cfe4; vertical-align: middle;
+  }
+  .newsletter-inline .btn {
+    display: inline-block; background: #2a7fd4; color: #fff; font-weight: 700;
+    padding: 6px 15px; vertical-align: middle; margin-left: 6px;
+  }
+
+  .newsletter-modal {
+    position: fixed;
+    left: 0;
+    right: 0;
+    top: 318px;
+    width: 500px;
+    margin: 0 auto;
+    z-index: 60;
+    background: #fff;
+    border: 1px solid #c9ced6;
+    box-shadow: 0 18px 50px rgba(10, 14, 20, .32);
+    padding: 22px 26px 24px;
+    text-align: center;
+  }
+  .newsletter-modal::before {
+    content: "";
+    position: fixed;
+    left: 0; top: 0; right: 0; bottom: 0;
+    background: rgba(16, 19, 24, .28);
+    z-index: -1;
+  }
+  .newsletter-modal .x { position: absolute; right: 12px; top: 8px; color: #9aa1aa; font-size: 18px; }
+  .newsletter-modal b { display: block; font-size: 22px; line-height: 1.25; }
+  .newsletter-modal p { font-size: 13px; color: var(--mute); margin: 9px 0 14px; }
+  .newsletter-modal .btn { display: inline-block; background: #101318; color: #fff; font-weight: 700; padding: 9px 26px; }
+
+  .cookie-banner {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    z-index: 50;
+    display: block;
+    background: #1d2330;
+    color: #e7ebf1;
+    padding: 15px 24px;
+    font: 13px/1.5 Helvetica, Arial, sans-serif;
+  }
+  .cookie-banner .btns { float: right; margin-left: 20px; }
+  .cookie-banner .b1 { display: inline-block; background: #4ea1ff; color: #06131f; font-weight: 700; padding: 6px 16px; }
+  .cookie-banner .b2 { display: inline-block; border: 1px solid #6a7484; padding: 6px 14px; margin-left: 8px; }
+
+  .promoted-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    background: var(--promo);
+    border: 1px solid var(--promo-edge);
+    padding: 12px;
+  }
+  .promoted-grid .slug {
+    grid-column: 1 / -1;
+    font-size: 10px; letter-spacing: .2em; text-transform: uppercase; color: #a8305a;
+  }
+  .promoted-grid .card { background: #fff; border: 1px solid #f0c3d0; padding: 8px; font-size: 12px; }
+  .promoted-grid .thumb { display: block; height: 58px; background: #f6d3dd; margin-bottom: 6px; }
+
+  .sponsored-links { display: block; background: var(--promo); border: 1px solid var(--promo-edge); padding: 11px 13px; font-size: 12px; }
+  .sponsored-links .slug { display: block; font-size: 10px; letter-spacing: .2em; text-transform: uppercase; color: #a8305a; margin-bottom: 7px; }
+  .sponsored-links .item { display: block; color: #8a2748; padding: 4px 0; border-top: 1px dotted #e7a9bd; }
+
+  .podcast-promo { display: block; background: #f1e7ff; border: 1px solid #a175dd; padding: 12px 13px; font-size: 13px; color: #4a2a77; }
+  .podcast-promo b { display: block; font-size: 15px; margin-bottom: 5px; }
+
+  /* ---------- the article ---------- */
+  .page {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 292px;
+    gap: 40px;
+    padding: 22px 24px 0;
+  }
+  .main { display: flex; flex-direction: column; gap: 17px; }
+  .sidebar { display: flex; flex-direction: column; gap: 18px; }
+
+  h1.headline { font: 400 35px/1.2 Georgia, serif; margin: 0; letter-spacing: -.01em; }
+  .dateline { font: 13px/1.5 Helvetica, Arial, sans-serif; color: var(--mute); }
+  .dateline b { color: var(--ink); }
+  figure.hero { margin: 0; }
+  figure.hero .plate {
+    display: block; height: 258px; background: #6f8a6a;
+    color: #e8efe6; font: 11px/258px Helvetica, Arial, sans-serif;
+    text-align: center; letter-spacing: .18em; text-transform: uppercase;
+  }
+  figure.hero figcaption { font: 12px/1.55 Helvetica, Arial, sans-serif; color: var(--mute); padding-top: 7px; }
+  .main p { margin: 0; }
+  .main p.lede { font-size: 18px; }
+  h2.subhead { font: 700 20px/1.3 Georgia, serif; margin: 6px 0 0; }
+  blockquote.pullquote {
+    margin: 4px 0; padding: 4px 0 4px 18px;
+    border-left: 4px solid var(--brand);
+    font: italic 21px/1.45 Georgia, serif; color: #2a3138;
+  }
+  blockquote.pullquote cite { display: block; font: 12px/1.5 Helvetica, Arial, sans-serif; color: var(--mute); font-style: normal; padding-top: 7px; }
+  .notes { border-top: 1px solid var(--rule); padding-top: 11px; font: 13px/1.6 Helvetica, Arial, sans-serif; color: var(--mute); }
+  .factbox { border: 1px solid var(--ink); padding: 13px 15px; font: 13px/1.6 Helvetica, Arial, sans-serif; }
+  .factbox b { display: block; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; margin-bottom: 8px; }
+  .factbox .n { display: block; border-top: 1px solid var(--rule); padding: 5px 0; }
+  .factbox .n i { font-style: normal; font-weight: 700; font-size: 17px; display: block; }
+</style>
+</head>
+<body>
+
+<div class="appbar" data-truth="clutter">
+  <span class="cta">Get the app</span>
+  Read faster in the Northline app &mdash; offline stories, morning briefing, no reload.
+</div>
+
+<header class="masthead" data-truth="chrome">
+  <span class="logo">NORTHLINE DAILY</span><span class="fixture-tag">SYNTHETIC FIXTURE PAGE</span>
+  <nav><span>World</span><span>Climate</span><span>Business</span><span>Science</span><span>Food</span><span>Opinion</span></nav>
+</header>
+
+<div class="page">
+  <div class="main">
+
+    <div class="ad ad--leaderboard" data-truth="clutter">
+      <span class="slug">Advertisement</span>
+      <span class="copy">Your portfolio is not diversified. Ours is.</span>
+      <span class="sub">Open a Meridian Yield account in 4 minutes &middot; Capital at risk</span>
+    </div>
+
+    <h1 class="headline" data-truth="article">Coffee rust is climbing into the cool slopes that used to be safe</h1>
+
+    <div class="dateline" data-truth="article">
+      By <b>Ruth Oyelaran</b>, Climate desk &middot; Published 14 March, 06:12 &middot; Updated 09:40 &middot; 7 min read
+    </div>
+
+    <div class="share-bar" data-truth="clutter">
+      <span class="pill">Share</span><span class="pill">Post</span><span class="pill">Send</span><span class="pill">Save</span><span class="pill">Gift this article</span>
+      <span>1.2k shares</span>
+    </div>
+
+    <figure class="hero" data-truth="article">
+      <span class="plate">Photograph &mdash; fixture placeholder</span>
+      <figcaption>A picker works a terrace at 1,780 metres, where growers had assumed the nights were still cold enough to hold the fungus back. Photograph: fixture placeholder, not a real image.</figcaption>
+    </figure>
+
+    <p class="lede" data-truth="article">For thirty years the advice given to coffee growers across the highlands was simple and it worked: plant higher. Leaf rust, the orange fungus that strips a coffee tree of the leaves it needs to ripen a crop, faded out somewhere above 1,500 metres, where the nights ran cold enough to stall it. This season the advice failed. Surveyors working three separate mountain ranges found established rust on terraces at 1,780 and 1,830 metres, on farms that had never reported it.</p>
+
+    <p data-truth="article">The pattern is not a single outbreak but a slow arrival. Growers in four cooperatives described the same sequence over two seasons: a few spotted leaves in the wettest corner of a plot, no visible loss at harvest, then a second year in which whole rows turned and the cherries stayed small and hollow. Because the first year costs almost nothing, it is routinely missed. By the time the loss shows up in the weight at the collection point, the spores have had eighteen months to settle in.</p>
+
+    <div class="ad ad--native" data-truth="clutter">
+      <span class="slug">Sponsored content</span>
+      <span class="copy">She turned her balcony into $400 a month. Here's the loophole landlords hate.</span>
+      <span class="sub">SmartYield Daily &middot; Sponsored</span>
+    </div>
+
+    <p data-truth="article">Two things changed at once, and untangling them is the current argument. Minimum night temperatures on the upper terraces have risen by roughly 1.1 degrees over two decades, which lengthens the window in which spores can germinate. At the same time the varieties planted through the last replanting drive, chosen for cup quality and yield, carry markedly less resistance than the rough older stock they replaced. Neither factor alone explains terraces at 1,830 metres. Together they do.</p>
+
+    <h2 class="subhead" data-truth="article">A warning system that arrives after the loss</h2>
+
+    <p data-truth="article">Most growing regions still detect rust the way they did in the 1990s: an agronomist walks the rows, or a farmer calls someone. Trials of a cheaper method &mdash; photographing marked leaves on a fixed schedule and scoring the images &mdash; cut the average time between first infection and first treatment from eleven weeks to under three in the plots where it was tried. The obstacle is not the camera. It is that the scoring has to happen every week on thousands of images, and nobody is paid to look at them.</p>
+
+    <blockquote class="pullquote" data-truth="article">
+      We are not short of information. We are short of anyone looking at the information in the week it matters.
+      <cite>Marta Qui&ntilde;ones, agronomist, eleven seasons surveying the northern ranges</cite>
+    </blockquote>
+
+    <p data-truth="article">The economics are unforgiving in a specific way. A fungicide round costs a smallholder roughly 9 per cent of the season's gross if it is applied on time and does its job. Applied a month late, it costs the same and recovers perhaps a third of the yield. The decision, in other words, is worth almost nothing on the day it is cheap and almost everything a few weeks later, which is precisely the shape of decision that gets deferred.</p>
+
+    <div class="newsletter-inline" data-truth="clutter">
+      <b>Get the Climate briefing</b>
+      <span class="row">The stories that matter, three mornings a week. Free for 30 days, cancel whenever.
+        <span class="fakefield"></span><span class="btn">Sign up</span></span>
+    </div>
+
+    <h2 class="subhead" data-truth="article">What the cooperatives are doing instead</h2>
+
+    <p data-truth="article">Three of the four cooperatives have stopped waiting for a regional forecast and started their own thresholds, tied to nothing more sophisticated than a cheap logger on a post and a rule about consecutive humid nights. It is coarse, and it produces false alarms, but a false alarm costs one wasted round of spraying and a missed infection costs a third of a year's income. Two cooperatives have also quietly gone back to interplanting the older, uglier, more resistant stock along the wet edges of their plots.</p>
+
+    <p data-truth="article">None of this is a solution at the scale of the problem, and everyone interviewed said so. The resistant varieties that breeders are working toward are eight to twelve years from the terraces even on optimistic timelines. What the last two seasons changed is narrower and more useful: the altitude line that growers, lenders and buyers all quietly relied on is no longer where anyone thought it was, and the people who planted above it did so on a promise that has expired.</p>
+
+    <div class="promoted-grid" data-truth="clutter">
+      <span class="slug">Promoted content &middot; you may also like</span>
+      <span class="card"><span class="thumb"></span>Doctors stunned: the 4pm habit that melts belly fat</span>
+      <span class="card"><span class="thumb"></span>These 12 celebrity homes are still on the market</span>
+      <span class="card"><span class="thumb"></span>Locals say this $29 gadget ended their heating bill</span>
+    </div>
+
+    <div class="notes" data-truth="article">
+      Method: reporting draws on visits to eleven farms across three ranges between November and February, survey records from four cooperatives covering 2,140 hectares, and temperature series from six upland stations. Yield figures are cooperative intake weights, not national statistics. A correction on 14 March fixed an altitude given in metres as feet.
+    </div>
+
+  </div>
+
+  <div class="sidebar">
+
+    <div class="ad ad--square" data-truth="clutter">
+      <span class="slug">Advertisement</span>
+      <span class="copy">One card. Zero fees abroad.</span>
+      <span class="sub">Switch in 6 minutes. 4.8 stars from 210,000 travellers.</span>
+    </div>
+
+    <div class="factbox" data-truth="article">
+      <b>The season in numbers</b>
+      <span class="n"><i>1,830 m</i>Highest terrace with established rust this season</span>
+      <span class="n"><i>+1.1 &deg;C</i>Rise in minimum night temperature over two decades</span>
+      <span class="n"><i>11 &rarr; 3 weeks</i>Detection lag in the photo-scoring trial plots</span>
+      <span class="n"><i>2,140 ha</i>Area covered by the four cooperatives' survey records</span>
+    </div>
+
+    <div class="sponsored-links" data-truth="clutter">
+      <span class="slug">Paid links &middot; around the web</span>
+      <span class="item">Retired at 41 using this one boring account</span>
+      <span class="item">Why pilots never drink the cabin coffee</span>
+      <span class="item">This wrinkle cream has a 9-month waiting list</span>
+      <span class="item">Banks hate this 2-minute refinance trick</span>
+    </div>
+
+    <div class="ad ad--skyscraper" data-truth="clutter">
+      <span class="slug">Advertisement</span>
+      <span class="copy">Ship it Friday.</span>
+      <span class="sub">Deploy 14x faster with Nimbus Cloud. Free for 60 days, no card.</span>
+    </div>
+
+    <div class="podcast-promo" data-truth="clutter">
+      <b>Listen: The Long Season</b>
+      Our 6-part podcast on the farms feeding your morning cup. New episodes Tuesdays, wherever you get podcasts.
+    </div>
+
+  </div>
+</div>
+
+<footer class="site-footer" data-truth="chrome">
+  Northline Daily is a synthetic fixture used to test de-cluttering. It is not a real publication and none of the
+  people, companies or figures on this page exist. &middot; Terms &middot; Privacy &middot; Cookie settings &middot; Contact
+</footer>
+
+<div class="newsletter-modal" data-truth="clutter">
+  <span class="x">&times;</span>
+  <b>Keep reading for free</b>
+  <p>You have 2 free articles left this month. Enter your email and we'll keep the counter off for 30 days.</p>
+  <span class="btn">Continue reading</span>
+</div>
+
+<div class="cookie-banner" data-truth="clutter">
+  <span class="btns"><span class="b1">Accept all</span><span class="b2">Manage choices</span></span>
+  We and our 862 partners store and access information on your device to personalise advertising and measure
+  performance. You can change your choices at any time in Cookie settings.
+</div>
+
+</body>
+</html>

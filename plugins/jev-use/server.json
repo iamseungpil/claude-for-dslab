@@ -1,0 +1,21 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.shitianfang/jev-use",
+  "description": "Typed yes/no, pick-one and score judgments from Jev in one batched call; typed escalation back.",
+  "repository": {
+    "url": "https://github.com/shitianfang/jev-use",
+    "source": "github"
+  },
+  "version": "0.7.1",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "jev-use",
+      "version": "0.7.1",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}

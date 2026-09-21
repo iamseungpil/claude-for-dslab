@@ -1,0 +1,28 @@
+# Publishes server.json to the official MCP Registry, which is where
+# modelcontextprotocol/servers now points every third-party server and where
+# the downstream directories (mcp.so, PulseMCP, Glama) read from.
+#
+# Auth is GitHub Actions OIDC: the registry grants io.github.shitianfang/*
+# to this repository, so no token or account is involved. The registry
+# validates that the npm package named in server.json carries the matching
+# "mcpName", so publish to npm first, then run this.
+name: publish-mcp
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write # OIDC
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Install mcp-publisher
+        run: |
+          curl -fsSL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+      - run: ./mcp-publisher login github-oidc
+      - run: ./mcp-publisher publish

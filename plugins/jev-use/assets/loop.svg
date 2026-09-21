@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="310" viewBox="0 0 920 310" font-family="ui-sans-serif,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#94a3b8"/>
+    </marker>
+    <marker id="g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#34d399"/>
+    </marker>
+    <marker id="o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#f59e0b"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="920" height="310" rx="14" fill="#0f172a"/>
+
+  <!-- Executor node -->
+  <rect x="46" y="100" width="200" height="84" rx="10" fill="#1e293b" stroke="#475569" stroke-width="1.5"/>
+  <text x="146" y="135" font-size="16" font-weight="600" fill="#e2e8f0" text-anchor="middle">Your loop</text>
+  <text x="146" y="158" font-size="11.5" fill="#94a3b8" text-anchor="middle">deterministic executor · enumerates steps</text>
+
+  <!-- Jev node -->
+  <rect x="400" y="100" width="170" height="84" rx="10" fill="#052e22" stroke="#34d399" stroke-width="1.5"/>
+  <text x="485" y="135" font-size="16" font-weight="600" fill="#6ee7b7" text-anchor="middle">Jev</text>
+  <text x="485" y="158" font-size="11.5" fill="#94a3b8" text-anchor="middle">whole batch · one call · ~100 ms</text>
+
+  <!-- LLM node -->
+  <rect x="724" y="100" width="150" height="84" rx="10" fill="#3b2506" stroke="#f59e0b" stroke-width="1.5"/>
+  <text x="799" y="135" font-size="16" font-weight="600" fill="#fbbf24" text-anchor="middle">LLM</text>
+  <text x="799" y="158" font-size="11.5" fill="#94a3b8" text-anchor="middle">plan · generate</text>
+
+  <!-- Executor -> Jev -->
+  <path d="M246 122 H396" stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#a)"/>
+  <text x="322" y="112" font-size="12" fill="#cbd5e1" text-anchor="middle">state + typed questions</text>
+
+  <!-- Jev -> Executor (verdicts) -->
+  <path d="M400 164 H250" stroke="#34d399" stroke-width="1.5" fill="none" marker-end="url(#g)"/>
+  <text x="322" y="182" font-size="12" fill="#6ee7b7" text-anchor="middle">verdicts + confidence → act</text>
+
+  <!-- Jev -> LLM (escalate) -->
+  <path d="M570 142 H720" stroke="#f59e0b" stroke-width="1.5" fill="none" marker-end="url(#o)"/>
+  <text x="645" y="132" font-size="12" fill="#fbbf24" text-anchor="middle">escalate + reason</text>
+  <text x="645" y="163" font-size="10" fill="#94a3b8" text-anchor="middle">needs_generation · not_typeable</text>
+  <text x="645" y="177" font-size="10" fill="#94a3b8" text-anchor="middle">low_confidence · backend_error</text>
+
+  <!-- LLM -> Executor (bottom arc) -->
+  <path d="M799 184 V236 Q799 248 787 248 H158 Q146 248 146 236 V188" stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#a)"/>
+  <text x="472" y="240" font-size="12" fill="#cbd5e1" text-anchor="middle">generated result rejoins the loop — only these steps cost LLM time</text>
+</svg>
