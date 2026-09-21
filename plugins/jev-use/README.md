@@ -92,7 +92,13 @@ results` judges the structured metric summary against the design's gates. Every 
 a cause (`intent_error` / `design_error` / `impl_error` / `measurement_error` /
 `runtime_error`) and a confidence; verdicts are priors, so the direct read is mandatory.
 Loop state lives in `.jev-loop/STATE.json` (`--record` appends each judgment to its
-`history[]`), max 3 rounds per inner loop.
+`history[]`), max 3 rounds per inner loop. `--judge agent` switches the backend: instead of
+calling Jev, each subcommand writes `<out>/<tag>.request.json` and reads the
+`<tag>.verdicts.json` the main agent writes itself (exit 5 while it is missing, exit 6 if an
+answer is off-type or its `reason` cites no `file:line`) — nothing leaves the machine, and the
+questions, thresholds and history row are identical to Jev's. A backend that answers
+`"reason": "unreachable"` prints `UNREACHABLE:`, exits 4 and records nothing; properties carry
+an optional `"scope"` (`code` / `run` / `design`) so `runconfig` asks only run-scale questions.
 Measured detection and blind spots: [docs/research-loop-evidence.md](docs/research-loop-evidence.md).
 
 ## Small enough to read

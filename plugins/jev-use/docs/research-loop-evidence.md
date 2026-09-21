@@ -65,6 +65,22 @@ closing it. The lessons are wired into the skill as the Step 0 approval ledger, 
 `runconfig` state (Step 8h), and the «Order of operations» rule that the smoke run precedes
 the audit.
 
+## Failure modes of the harness itself, 2026-09-21
+
+- **A 503 outage produced four `None` tables and four bogus history rows.** Verdicts came back
+  `{"answer": null, "reason": "unreachable"}`; the table printed `None` and `--record` appended
+  normal-looking rows, so the ledger claimed four judgments that never happened. The script now
+  prints `UNREACHABLE: <hint>`, exits **4** after saving the JSON, and records **nothing**.
+- **`runconfig` with 26 code-scope properties produced 15 escalations** that buried the two
+  answers that mattered (`run_scale` **.82**, `control_bit_identical` **.94**). Properties now
+  carry a `"scope"` (`code` default / `run` / `design`); `runconfig` asks run-scope only and
+  drops the fixed `gold_leak` / `unneeded` / `bug` / `quality` questions, which are about code.
+- **`min_property` mixed types**: a 1–5 `score` and the high = bad ids sat in the same minimum.
+  The history row now keeps `min_property` (high = good `noul` only), `scores` and `choice` apart.
+- **`--judge agent`** replaces the print-only fable mode: the request is written to
+  `<tag>.request.json`, the agent's `<tag>.verdicts.json` is validated (type range + a `reason`
+  citing `file:line`) and then tabulated, saved and recorded exactly as Jev's.
+
 ## Blind classes (extend per repo)
 
 - **sign flips** — Δ +.06, below the noise floor. Treat sign correctness as a

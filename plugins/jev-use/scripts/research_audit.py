@@ -45,9 +45,99 @@ QUALITY = {"id": "quality", "type": "score",
                       "faithfully realizes it"]}
 
 
-def die(msg: str, hint: str) -> None:
+AGENT = False           # --judge agent: the main agent answers; no backend call is made
+OUT = "./.jev-audit/"   # --out, needed by the agent-judge request/verdict file round trip
+
+# a reason must cite something checkable: file:line, or a document/section reference
+CITE = re.compile(r"[\w./\\-]+\.\w+:\d+|[\w./\\-]+\.(?:md|txt|json|ya?ml|rst)\b|§\s*\S+")
+HIGH_BAD = ("bug", "gold_leak", "unneeded", "stop_rule_triggered")   # high = bad noul ids
+SCOPES = ("code", "run", "design")
+
+
+def die(msg: str, hint: str, code: int = 2) -> None:
     print(f"error: {msg}\n  fix: {hint}", file=sys.stderr)
-    raise SystemExit(2)
+    raise SystemExit(code)
+
+
+def qtype(q: dict) -> str:
+    return q.get("type") or "noul"
+
+
+def check_agent(res: dict, questions: list[dict], path: Path) -> None:
+    """Every question answered, in range for its type, with a citing reason. Else exit 6."""
+    vs = res.get("verdicts")
+    if not isinstance(vs, list):
+        die(f"{path} has no 'verdicts' list",
+            'write {"verdicts": [{"id","type","answer","confidence","reason"}],'
+            ' "backend": "agent"}', 6)
+        return
+    by = {v.get("id"): v for v in vs if isinstance(v, dict)}
+    for q in questions:
+        qid, t, v = q["id"], qtype(q), by.get(q["id"])
+        if v is None:
+            die(f"{path} does not answer '{qid}'", "add a verdict for every question id", 6)
+            return
+        ans, num = v.get("answer"), isinstance(v.get("answer"), (int, float)) and not isinstance(
+            v.get("answer"), bool)
+        ok = (num and 0.0 <= ans <= 1.0) if t == "noul" else (
+            (num and 1 <= ans <= 5) if t == "score" else ans in (q.get("options") or {}))
+        if not ok:
+            want = {"noul": "a float in [0,1]", "score": "a number 1..5"}.get(
+                t, "one of " + ", ".join(sorted(q.get("options") or {})))
+            die(f"{path}: verdict '{qid}' answer {ans!r} is not valid for type {t}",
+                f"answer '{qid}' with {want}", 6)
+            return
+        reason = v.get("reason")
+        if not isinstance(reason, str) or not reason.strip():
+            die(f"{path}: verdict '{qid}' has no reason",
+                "every reason must be a non-empty string citing file:line or a document", 6)
+            return
+        if not CITE.search(reason):
+            die(f"{path}: verdict '{qid}' reason cites nothing checkable",
+                "cite a file:line (mc/credit.py:44) or a document (docs/INTENT.md) in the"
+                " reason", 6)
+            return
+
+
+def agent_judge(tag: str, state: str, questions: list[dict]) -> dict:
+    """Write the exact request; read the agent's verdicts if they exist, else exit 5."""
+    out = Path(OUT)
+    out.mkdir(parents=True, exist_ok=True)
+    req, ver = out / f"{tag}.request.json", out / f"{tag}.verdicts.json"
+    req.write_text(json.dumps({"state": state, "questions": questions}, indent=2))
+    if not ver.exists():
+        print(f"AWAITING AGENT VERDICTS: read {req}, write {ver}, rerun the same command")
+        raise SystemExit(5)
+    try:
+        res = json.loads(ver.read_text())
+    except json.JSONDecodeError as e:
+        die(f"{ver} is not valid JSON ({e})", "rewrite the verdicts file as one JSON object", 6)
+        return {}
+    check_agent(res, questions, ver)
+    res["backend"] = "agent"
+    res.setdefault("latencyMs", 0)
+    return res
+
+
+def unreachable(res: dict) -> bool:
+    """The backend did not judge: a verdict says so, or nothing was answered at all."""
+    vs = [v for v in res.get("verdicts", []) if isinstance(v, dict)]
+    if not vs:
+        return True
+    return (any(str(v.get("reason", "")).strip().lower() == "unreachable" for v in vs)
+            or all(v.get("answer") is None for v in vs))
+
+
+def unreachable_hint(rows: list) -> str:
+    """One line naming what came back, for the UNREACHABLE banner."""
+    for name, res in rows:
+        for v in res.get("verdicts", []):
+            if isinstance(v, dict) and v.get("answer") is None:
+                return (f"{name}: backend {res.get('backend', '?')} returned"
+                        f" reason={v.get('reason')!r} — no judgment happened")
+        if unreachable(res):
+            return f"{name}: backend {res.get('backend', '?')} returned no verdicts"
+    return "the backend returned no judgment"
 
 
 def preflight() -> None:
@@ -68,8 +158,11 @@ def preflight() -> None:
             "set -a; source <your>/.env; set +a; export TYPESAFE_API_KEY=\"$JEV_API_KEY\"")
 
 
-def judge(state: str, questions: list[dict], cmd: str, threshold: float | None) -> dict:
+def judge(state: str, questions: list[dict], cmd: str, threshold: float | None,
+          label: str = "state", tag: str | None = None) -> dict:
     """One batched call. Returns the engine's result dict (exit 3 = escalated, not an error)."""
+    if AGENT:
+        return agent_judge(tag or re.sub(r"[^\w.-]+", "_", label), state, questions)
     req: dict = {"state": state, "questions": questions}
     if threshold is not None:
         req["confidenceThreshold"] = threshold
@@ -97,12 +190,34 @@ def table(rows: list[tuple[str, dict]], qids: list[str]) -> None:
               + f"   {esc:>3d} {res.get('latencyMs', 0):>5d}")
 
 
+def props_of(path: str | None, scope: str) -> list[dict]:
+    """Properties whose "scope" matches (absent scope means "code"). Unknown scope = error."""
+    out = []
+    for p in (json.loads(Path(path).read_text()) if path else []):
+        sc = p.get("scope", "code")
+        if sc not in SCOPES:
+            die(f"property '{p.get('id')}' has scope {sc!r}",
+                'use one of "code" (default), "run", "design"')
+        if sc != scope:
+            continue
+        out.append({"id": p["id"], "type": "noul", "question": p["question"],
+                    **({"criteria": p["criteria"]} if p.get("criteria") else {})})
+    return out
+
+
 def questions_for(path: str | None) -> list[dict]:
-    """Derived properties (if any) first, then the three fixed noul + quality."""
-    props = [{"id": p["id"], "type": "noul", "question": p["question"],
-              **({"criteria": p["criteria"]} if p.get("criteria") else {})}
-             for p in (json.loads(Path(path).read_text()) if path else [])]
-    return props + FIXED + [QUALITY]
+    """Code-scope properties (if any) first, then the three fixed noul + quality."""
+    return props_of(path, "code") + FIXED + [QUALITY]
+
+
+def run_questions(path: str | None) -> list[dict]:
+    """runconfig asks ONLY run-scope properties: the fixed four are about code, not the job."""
+    qs = props_of(path, "run")
+    if not qs:
+        die("no run-scope property in properties.json",
+            'add a run-scale property with "scope": "run" (e.g. pilot_scale: does the'
+            " submitted run use the pool size / K / step count the intent names?)")
+    return qs
 
 
 CLOSED = ""   # set from --closed-axes; appended to every state so design_error is judgeable
@@ -120,7 +235,7 @@ def save(out: Path, name: str, res: dict) -> None:
 
 def emit(a, tag: str, name: str, state: str, qs: list[dict]) -> list:
     """One batched call on one state: judge, persist the verdict JSON, print the raw table."""
-    res = judge(state, qs, a.jev_cmd, a.threshold)
+    res = judge(state, qs, a.jev_cmd, a.threshold, name, tag)
     save(Path(a.out), tag, res)
     table([(name, res)], [q["id"] for q in qs])
     return [(name, res)]
@@ -154,7 +269,8 @@ def cmd_modules(a) -> list:
     rows = []
     for f in a.files:
         p = Path(f)
-        res = judge(head(Path(a.intent), p.name, p.read_text()), qs, a.jev_cmd, a.threshold)
+        res = judge(head(Path(a.intent), p.name, p.read_text()), qs, a.jev_cmd, a.threshold,
+                    p.name, p.stem)
         save(Path(a.out), p.stem, res)
         rows.append((p.name, res))
     table(rows, [q["id"] for q in qs])
@@ -170,7 +286,8 @@ def cmd_functions(a) -> list:
     rows = []
     for name, body in split_functions(src):
         state = head(Path(a.intent), f"{Path(a.file).name}::{name}", pre + "\n\n" + body)
-        res = judge(state, qs, a.jev_cmd, a.threshold)
+        res = judge(state, qs, a.jev_cmd, a.threshold, name,
+                    f"{Path(a.file).stem}.{name}")
         save(Path(a.out), f"{Path(a.file).stem}.{name}", res)
         rows.append((name, res))
     table(rows, [q["id"] for q in qs])
@@ -202,7 +319,8 @@ def cmd_intent_delta(a) -> list:
     qs = questions_for(a.properties)
     src, rows = Path(a.file).read_text(), []
     for tag, doc in (("intent_a", a.intent), ("intent_b", a.intent_b)):
-        res = judge(head(Path(doc), Path(a.file).name, src), qs, a.jev_cmd, a.threshold)
+        res = judge(head(Path(doc), Path(a.file).name, src), qs, a.jev_cmd, a.threshold, tag,
+                    f"intent.{Path(a.file).stem}.{tag}")
         save(Path(a.out), f"intent.{Path(a.file).stem}.{tag}", res)
         rows.append((tag, res))
     table(rows, [q["id"] for q in qs])
@@ -221,7 +339,8 @@ def deltas(base: dict, other: dict) -> dict:
 def cmd_plant(a) -> list:
     qs = questions_for(a.properties)
     src = Path(a.file).read_text()
-    base = judge(head(Path(a.intent), Path(a.file).name, src), qs, a.jev_cmd, a.threshold)
+    base = judge(head(Path(a.intent), Path(a.file).name, src), qs, a.jev_cmd, a.threshold,
+                 "original", f"plant.{Path(a.file).stem}.original")
     save(Path(a.out), f"plant.{Path(a.file).stem}.original", base)
     rows = [("original", base)]
     for n, patch in enumerate(a.patch, 1):
@@ -232,7 +351,8 @@ def cmd_plant(a) -> list:
             die(f"patch {n} matches {src.count(old)} times (need exactly 1)",
                 "extend OLD with surrounding lines until it is unique")
         res = judge(head(Path(a.intent), Path(a.file).name, src.replace(old, new)),
-                    qs, a.jev_cmd, a.threshold)
+                    qs, a.jev_cmd, a.threshold, f"planted#{n}",
+                    f"plant.{Path(a.file).stem}.{n}")
         save(Path(a.out), f"plant.{Path(a.file).stem}.{n}", res)
         rows.append((f"planted#{n}", res))
     table(rows, [q["id"] for q in qs])
@@ -263,29 +383,67 @@ def cmd_runconfig(a) -> list:
     rows = emit(a, f"runconfig.{Path(a.job).stem}", Path(a.job).name,
                 f"# WRITTEN INTENT (the contract this run must honour)\n"
                 f"{Path(a.intent).read_text()}\n{CLOSED}\n" + "\n".join(body),
-                questions_for(a.properties))
+                run_questions(a.properties))
     print("\nrun this on the EXACT job JSON before submission: a scale the intent fixes but"
           " the config does not honour shows up here, not in the module audit.")
     return rows
 
 
+SCORE_IDS = ("quality", "design_quality")
+CHOICE_IDS = ("continue",)
+
+
+def vkind(v: dict) -> str:
+    """The type of a verdict: what it declares, else what its id is known to be."""
+    t = v.get("type")
+    if t in ("noul", "score", "choice"):
+        return t
+    return ("score" if v["id"] in SCORE_IDS else
+            "choice" if v["id"] in CHOICE_IDS else "noul")
+
+
 def record(a, rows: list) -> None:
-    """Append one audit-state line to <out>/STATE.json.history; never delete entries."""
+    """Append one audit-state line to <out>/STATE.json.history; never delete entries.
+
+    min_property looks at high=good `noul` answers ONLY: the fixed high=bad ids, the 1-5
+    `score` verdicts and the `choice` are kept apart, under "scores" and "choice".
+    An unreachable judgment appends nothing at all (main() exits 4 before reaching here).
+    """
     p = Path(a.out) / "STATE.json"
     st = json.loads(p.read_text()) if p.exists() else {}
-    vals = [(v["id"], v["answer"]) for _, r in rows for v in r.get("verdicts", [])
-            if isinstance(v.get("answer"), (int, float))]
-    st.setdefault("history", []).append({
-        "min_property": min([x[1] for x in vals
-                             if x[0] not in ("bug", "gold_leak", "unneeded", "quality")],
-                            default=None),
-        "step": st.get("step"), "subcommand": a.cmd, "targets": [n for n, _ in rows],
-        "max_bug": max([x[1] for x in vals if x[0] == "bug"], default=None),
-        "escalated": sum(1 for _, r in rows for v in r.get("verdicts", []) if v.get("escalate")),
-        "timestamp": datetime.datetime.now().isoformat(timespec="seconds")})
+    vs = [v for _, r in rows for v in r.get("verdicts", []) if isinstance(v, dict) and "id" in v]
+    num = [v for v in vs if isinstance(v.get("answer"), (int, float))
+           and not isinstance(v.get("answer"), bool)]
+    good = [v["answer"] for v in num if vkind(v) == "noul" and v["id"] not in HIGH_BAD]
+    row = {
+        "min_property": min(good, default=None),
+        "step": getattr(a, "step", None) or st.get("step"), "subcommand": a.cmd,
+        "targets": [n for n, _ in rows],
+        "max_bug": max([v["answer"] for v in num if v["id"] == "bug"], default=None),
+        "scores": {v["id"]: v["answer"] for v in num if vkind(v) == "score"},
+        "choice": {v["id"]: v.get("answer") for v in vs if vkind(v) == "choice"},
+        "backend": next((r.get("backend") for _, r in rows if r.get("backend")), None),
+        "escalated": sum(1 for v in vs if v.get("escalate")),
+        "timestamp": datetime.datetime.now().isoformat(timespec="seconds")}
+    st.setdefault("history", []).append(row)
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps(st, indent=2))
     print(f"recorded: {p}  (history entries: {len(st['history'])})")
+
+
+def cmd_record(a) -> list:
+    """agent mode, by hand: turn the agent's own answers into a verdict file of the jev shape.
+    noul values in [0,1], score 1-5, one line of evidence (file:line) per answer."""
+    ans = json.loads(Path(a.answers).read_text())
+    if not isinstance(ans, dict):
+        die("answers file is not an object", 'write {"id": value, ...} (+ "evidence")')
+    ev = ans.pop("evidence", None) or {}
+    res = {"backend": "agent", "latencyMs": 0,
+           "verdicts": [{"id": k, "answer": v, "escalate": False,
+                         **({"evidence": ev[k]} if k in ev else {})} for k, v in ans.items()]}
+    save(Path(a.out), a.target, res)
+    table([(a.target, res)], [v["id"] for v in res["verdicts"]])
+    return [(a.target, res)]  # main() records it exactly as --record does
 
 
 def doc_state(intent: Path, parts: list[tuple[str, str]]) -> str:
@@ -365,20 +523,24 @@ def cmd_results(a) -> list:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--intent", required=True, help="path to the corrected intent document")
+    ap.add_argument("--intent", help="path to the corrected intent document (all but `record`)")
+    ap.add_argument("--judge", choices=("jev", "agent", "fable"), default="jev",
+                    help="jev = batched backend calls; agent (= fable) = no backend: write"
+                         " <out>/<tag>.request.json and read <out>/<tag>.verdicts.json that the"
+                         " main agent writes (exit 5 while it is missing, 6 if it is invalid)")
     ap.add_argument("--out", default="./.jev-audit/", help="where verdict JSON lands")
     ap.add_argument("--properties", help="JSON list of {id, question, criteria:{true,false}}")
     ap.add_argument("--jev-cmd", default="npx -y jev-use@0.7.1 judge")
     ap.add_argument("--threshold", type=float)
-    ap.add_argument("--closed-axes", help="text file of axes already falsified; goes into"
-                                          " every state so re-buying one shows as design_error")
-    ap.add_argument("--record", action="store_true",
-                    help="append {step, subcommand, targets, min_property, max_bug, escalated,"
-                         " timestamp} to <out>/STATE.json.history (existing entries are kept)")
+    ap.add_argument("--closed-axes", help="text file of axes already falsified; goes into every"
+                    " state so re-buying one shows as design_error")
+    ap.add_argument("--record", action="store_true", help="append {step, subcommand, targets,"
+                    " min_property, max_bug, scores, choice, backend, escalated, timestamp} to"
+                    " <out>/STATE.json.history; an unreachable judgment appends nothing")
     sub = ap.add_subparsers(dest="cmd", required=True)
     m = sub.add_parser("modules", help="one batched call per file")
     m.add_argument("--files", nargs="+", required=True); m.set_defaults(fn=cmd_modules)
-    f = sub.add_parser("functions", help="re-ask bug/unneeded per top-level function")
+    f = sub.add_parser("functions", help="re-ask bug/unneeded per function")
     f.add_argument("--file", required=True); f.set_defaults(fn=cmd_functions)
     pl = sub.add_parser("plan", help="judge a proposed fix before writing it")
     pl.add_argument("--code-file", required=True)
@@ -387,28 +549,43 @@ def main() -> None:
     pt.add_argument("--file", required=True); pt.set_defaults(fn=cmd_plant)
     pt.add_argument("--patch", action="append", required=True, metavar="OLD=>NEW")
     idl = sub.add_parser("intent-delta", help="same code, two intent docs: intent_error probe")
-    idl.add_argument("--intent-b", required=True, help="the second (e.g. corrected) intent doc")
+    idl.add_argument("--intent-b", required=True, help="the second (corrected) intent doc")
     idl.add_argument("--file", required=True); idl.set_defaults(fn=cmd_intent_delta)
     dg = sub.add_parser("design", help="formal check of a design doc before planning")
-    dg.add_argument("--design", required=True, help="path to .jev-loop/design.md")
-    dg.set_defaults(fn=cmd_design)
+    dg.add_argument("--design", required=True); dg.set_defaults(fn=cmd_design)
     rs = sub.add_parser("results", help="judge measured results against the design's gates")
     rs.add_argument("--design", required=True, help="path to .jev-loop/design.md")
     rs.add_argument("--results", required=True, help="path to .jev-loop/results.md")
     rs.set_defaults(fn=cmd_results)
-    rc = sub.add_parser("runconfig", help="judge the run as submitted: job JSON + pool"
-                                         " summary + launcher defaults (Step 8h)")
+    rc = sub.add_parser("runconfig", help="judge the run as submitted: job JSON + pool summary"
+                        " + launcher defaults (Step 8h)")
     rc.add_argument("--job", required=True, help="path to the exact job JSON to be submitted")
     rc.add_argument("--pool-summary", help="path to the pool/dataset summary JSON")
     rc.add_argument("--launcher", help="launcher script; its ${VAR:-default} lines are folded in")
     rc.set_defaults(fn=cmd_runconfig)
+    rd = sub.add_parser("record", help="agent answers by hand -> verdict file + history row")
+    rd.add_argument("--target", required=True, help="verdict file name under --out")
+    rd.add_argument("--step", type=int, help="loop step this judgment belongs to")
+    rd.add_argument("--answers", required=True, help='JSON {id: value} + optional "evidence"')
+    rd.set_defaults(fn=cmd_record)
     a = ap.parse_args()
-    preflight()
+    if a.cmd != "record":
+        if not a.intent:
+            die("--intent is required", "pass --intent path/to/INTENT.md")
+        if a.judge == "jev":
+            preflight()   # --judge agent needs no key and no node
+    global AGENT, CLOSED, OUT  # noqa: PLW0603
+    AGENT, OUT = a.judge in ("agent", "fable"), a.out
     if a.closed_axes:
-        global CLOSED  # noqa: PLW0603
         CLOSED = ("\n# CLOSED AXES (already falsified -- re-buying one is a design error)\n"
                   + Path(a.closed_axes).read_text() + "\n")
     rows = a.fn(a)
+    if a.cmd == "record":
+        return record(a, rows)
+    if any(unreachable(r) for _, r in rows):
+        print(f"\nUNREACHABLE: {unreachable_hint(rows)}; the verdict JSON under {a.out} holds"
+              " no judgment and nothing was recorded -- rerun once the backend answers.")
+        raise SystemExit(4)
     if a.record:
         record(a, rows)
     if any(v.get("escalate") for _, r in rows for v in r.get("verdicts", [])):

@@ -16,6 +16,26 @@ judgment rows to `history[]` (see Step 8h). **Max 3 rounds per inner loop** (1c�
 and ask the human. Every finding carries **two axes**: `confidence` (확정 / 미확인 /
 잡음) and `cause`. Never report one without the other.
 
+## Choosing the judge
+
+Every judging step runs under one of two backends, selected by `--judge`.
+- **`judge: jev`** (default) — the fast prior-maker: **large batches** (many modules, `plant`
+  sweeps, `functions` narrowing), **many items**, and whenever **the state is a file** you
+  would rather not pull into the conversation.
+- **`judge: agent`** — the **main agent answers the same typed questions itself**, from a file,
+  with no backend call. The subcommand writes `<out>/<tag>.request.json`
+  (`{"state", "questions"}`) and looks for `<out>/<tag>.verdicts.json` in the engine's own
+  schema (`{"verdicts": [{"id","type","answer","confidence","reason"}], "backend": "agent"}`).
+  Missing verdicts → `AWAITING AGENT VERDICTS: ...` and **exit 5**; an answer of the wrong type
+  or a `reason` without a `file:line` / document citation → **exit 6**. Use it when **jev is
+  unavailable** (no key, no node ≥ 20), when **the user asks for it**, or when **every jev
+  verdict escalates**, so the priors carry no information. See «Running the loop with the agent
+  as judge».
+- **Unreachable backend.** If the backend answers but judged nothing (`"answer": null,
+  `"reason": "unreachable"`, e.g. an HTTP 503), the script prints `UNREACHABLE: <hint>` under
+  the table, saves the verdict JSON, **exits 4**, and `--record` **appends nothing** to
+  `STATE.json.history`. A `None` table is never a judgment.
+
 ## The cause axis
 
 | cause | what it means | who decides it |
@@ -91,6 +111,8 @@ python3 scripts/research_audit.py --intent docs/INTENT.md --closed-axes docs/clo
   --out ./.jev-loop/ design --design .jev-loop/design.md
 ```
 
+agent judge: `... --judge agent design` writes the request file instead of calling the backend; answer it into `<tag>.verdicts.json` and rerun the same command.
+
 Fixed `noul` questions, all phrased **high = good**: `intent_consistent` ·
 `no_closed_axis_rebuy` · `gates_numeric` · `stop_rules_present` · `novelty_stated` ·
 `mechanism_verifiable`; plus `design_quality`, a 1–5 `score`. **These verdicts are a
@@ -114,6 +136,8 @@ list. No code is written in this step.
 python3 scripts/research_audit.py --intent docs/INTENT.md --out ./.jev-loop/ \
   plan --code-file mc/credit.py --plan-text "$(cat .jev-loop/plan.md)"
 ```
+
+agent judge: `... --judge agent plan` writes the request file instead of calling the backend; answer it into `<tag>.verdicts.json` and rerun the same command.
 
 Asks `fix_correct` / `fix_incomplete` / `fix_harm` / `budget_ok`. With `--closed-axes` it
 is also the `design_error` probe. It orders the reading list; it does not approve a patch.
@@ -157,6 +181,23 @@ properties so **high = good**; the script adds three fixed `noul` questions wher
 **high = bad** (`gold_leak`, `unneeded`, `bug`) plus `quality`, a 5-level `score`. A
 property must be verifiable *from the code*; "is this good research?" is `open_ended`.
 
+**Property scope.** Each property may carry an optional `"scope"`: `"code"` (the default when
+absent), `"run"` or `"design"`. `modules` / `functions` / `plant` / `intent-delta` ask **only
+`scope: "code"`** properties (plus the fixed four); **`runconfig` asks only `scope: "run"`**
+properties and **drops the fixed `gold_leak` / `unneeded` / `bug` / `quality` questions**,
+which are questions about code and are meaningless against a job JSON. A module-level property
+asked of a job JSON produces a confident answer about nothing — on 2026-09-21, 26 code-scope
+properties produced 15 escalations in one `runconfig` table and buried the two that mattered.
+If `properties.json` has no run-scope property, `runconfig` dies with a hint: add one in the
+`pilot_scale` mould.
+
+```json
+[{"id": "pilot_scale", "scope": "run",
+  "question": "Does the submitted run use the pilot pool size / K / step count the intent names?",
+  "criteria": {"true": "every scale knob matches the intent verbatim",
+               "false": "a knob differs from the number the intent fixes"}}]
+```
+
 **8b MODULE JUDGE (script → Jev).**
 
 ```bash
@@ -164,6 +205,8 @@ python3 scripts/research_audit.py --intent docs/INTENT.md --properties propertie
   --out ./.jev-loop/ --closed-axes docs/closed_axes.txt \
   modules --files mc/credit.py mc/train_hook.py
 ```
+
+agent judge: `... --judge agent modules` writes the request file instead of calling the backend; answer it into `<tag>.verdicts.json` and rerun the same command.
 
 All questions for one module go in **ONE** `jev-use judge` call. State = intent (+ closed
 axes) + module source, passed by reference on stdin — nothing enters the conversation. One
@@ -180,6 +223,8 @@ answer < .5**, **bug ≥ .55**, or any **Δ ≥ .10** between two variants of th
 python3 scripts/research_audit.py --intent docs/INTENT.md --out ./.jev-loop/ \
   functions --file mc/train_hook.py
 ```
+
+agent judge: `... --judge agent functions` writes the request file instead of calling the backend; answer it into `<tag>.verdicts.json` and rerun the same command.
 
 Re-asks `bug` / `unneeded` per top-level function (state = module preamble + that function).
 
@@ -200,9 +245,40 @@ python3 scripts/research_audit.py --intent docs/INTENT.md --properties propertie
   plant --file mc/credit.py --patch 'OLD_LINE=>NEW_LINE_WITH_DEFECT'
 ```
 
+agent judge: `... --judge agent plant` writes the request file instead of calling the backend; answer it into `<tag>.verdicts.json` and rerun the same command.
+
 Judges the original against each planted-defect copy and prints Δ per question; each `OLD`
 must occur exactly once. Record which defect classes come back **blind** (Δ < .10) in
 `docs/research-loop-evidence.md` — a blind class is a human gate in this repo, permanently.
+
+**8h RUN CONFIG (script → Jev, before submission; run it at Step 10, just before you
+submit).** The audited code is not the run. Judge
+the **exact job JSON you are about to submit** — its command string and env assignments — plus
+the pool summary and the launcher's `${VAR:-default}` lines, against the same properties:
+
+```bash
+python3 scripts/research_audit.py --intent docs/INTENT.md --properties properties.json \
+  --out ./.jev-loop/ --record runconfig --job .jev-loop/job.json \
+  --pool-summary .jev-loop/pool_summary.json --launcher mc/run.sh
+```
+
+agent judge: `... --judge agent runconfig` writes the request file instead of calling the backend; answer it into `<tag>.verdicts.json` and rerun the same command.
+
+A scale the intent fixes but the config does not honour shows up here and nowhere else — the
+module audit reads code, not the knob the launcher defaulted. Read it with the Step 8c
+thresholds; it asks **only the run-scope properties** of 8a. With `--judge agent` the row is
+written straight from the agent's `<tag>.verdicts.json`; `record --target NAME --step N
+--answers FILE.json` (`{id: value, ...}` plus an optional `evidence` map) remains the by-hand
+path and lands `"backend": "agent"`. **`--record` is how STATE.json gets judgment rows**: every
+subcommand appends `{step, subcommand, targets, min_property, max_bug, scores, choice, backend,
+escalated, timestamp}` to
+`STATE.json.history` and never deletes an entry. The agent hand-edits STATE.json **only for
+step and round transitions** — never to write a judgment.
+
+`min_property` is the minimum over **high = good `noul`** answers only: the high = bad ids
+(`bug`, `gold_leak`, `unneeded`, `stop_rule_triggered`) are excluded, the 1–5 `score` verdicts
+(`quality`, `design_quality`) land in `scores`, and a `choice` lands in `choice`. Mixing a
+1–5 score into a [0,1] minimum is what made an early `min_property` read `1.0` on a failing run.
 
 **Output contract.** The script prints raw Jev values only. **You** write the findings
 table, on both axes:
@@ -226,24 +302,8 @@ open 확정 row may pass to Step 10.
 
 ## Step 10 — QUEUE + RESULTS JUDGE
 
-**8h. RUN CONFIG (script → Jev, before submission).** The audited code is not the run. Judge
-the **exact job JSON you are about to submit** — its command string and env assignments — plus
-the pool summary and the launcher's `${VAR:-default}` lines, against the same properties:
-
-```bash
-python3 scripts/research_audit.py --intent docs/INTENT.md --properties properties.json \
-  --out ./.jev-loop/ --record runconfig --job .jev-loop/job.json \
-  --pool-summary .jev-loop/pool_summary.json --launcher mc/run.sh
-```
-
-A scale the intent fixes but the config does not honour shows up here and nowhere else — the
-module audit reads code, not the knob the launcher defaulted. Read it with the Step 8c
-thresholds. **`--record` is how STATE.json gets judgment rows**: every subcommand appends
-`{step, subcommand, targets, min_property, max_bug, escalated, timestamp}` to
-`STATE.json.history` and never deletes an entry. The agent hand-edits STATE.json **only for
-step and round transitions** — never to write a judgment.
-
-Then the **main agent** submits the job JSON to the project's queue (never a subagent; never
+Run **Step 8h (run config)** first — it lives at the end of Step 8 and is the last gate before
+submission. Then the **main agent** submits the job JSON to the project's queue (never a subagent; never
 a `git push`). On each completion trigger, spawn `experiment-interpreter` to turn the run's
 logs into a **structured metric summary — a table of quantity, step, value, `file:line`** →
 `.jev-loop/results.md`. Raw logs never go into that file and never reach Jev; the summary is
@@ -254,10 +314,39 @@ python3 scripts/research_audit.py --intent docs/INTENT.md --out ./.jev-loop/ \
   results --design .jev-loop/design.md --results .jev-loop/results.md
 ```
 
+agent judge: `... --judge agent results` writes the request file instead of calling the backend; answer it into `<tag>.verdicts.json` and rerun the same command.
+
 `noul`: `gates_met` · `stop_rule_triggered` (**high = bad**) · `metric_matches_definition`;
 plus `continue`, a `choice` among `{continue, stop_arm, back_to_step_1}`. Any problem —
 gate missed, stop rule fired, metric mismatch — sends the loop back to **Step 1**, and
 `experiment-verifier` is the subagent to call when a reported number itself is in doubt.
+
+## Running the loop with the agent as judge
+
+`--judge agent` runs the identical loop with the main agent (Fable) in Jev's seat: **the same
+questions, the same thresholds (Step 3, Step 6, Step 8c), the same cause axis**, the same
+`STATE.json.history` rows — only the answerer changes.
+
+```bash
+python3 scripts/research_audit.py --judge agent --intent docs/INTENT.md \
+  --properties properties.json --out ./.jev-loop/ --record \
+  modules --files mc/credit.py          # writes .jev-loop/credit.request.json, exits 5
+# read that request, write .jev-loop/credit.verdicts.json, then rerun the SAME command
+```
+
+Rules for the agent:
+
+- **Answer from the request file only.** Read `<tag>.request.json` and judge the state it
+  contains — not your memory of the conversation, not the diff you just wrote. The request is
+  the whole evidence base, exactly as it would have been for Jev.
+- **Cite in every `reason`.** A non-empty `reason` with a `file:line` (`mc/credit.py:44`) or a
+  document reference (`docs/INTENT.md`). No citation → the script rejects the file with exit 6.
+- **Stay inside the type.** `noul` → a float in [0,1]; `score` → 1–5; `choice` → one of the
+  option ids. Wrong type → exit 6.
+- **Calibration still applies (Step 8g).** `plant` and `intent-delta` need **one verdict file
+  per variant**, and the original and the planted copies must be answered in **separate, blind
+  passes** — answer one, rerun, answer the next, without looking back at the earlier answers.
+  An agent that remembers the original's numbers measures nothing.
 
 ## Running only one step
 
