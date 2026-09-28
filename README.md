@@ -52,6 +52,7 @@ top-level `skills/`·`agents/`·`commands/`(install.sh 심링크 방식)와 별�
 | `autoresearch` | Karpathy autoresearch 패턴: goal + metric + autonomous loop. `/autoresearch:plan/predict/probe/debug/fix/learn/ship/reason/security/scenario` 등 슬래시 변형 지원. (from [uditgoenka/autoresearch](https://github.com/uditgoenka/autoresearch), MIT) |
 | `paper-section-rewrite` | 논문 한 섹션을 구조 plan critic loop → 두괄식 prose → 본문 critic loop → 수식·notation 감사 → LaTeX 빌드 검증까지 돌리는 섹션 단위 윤문. paper-digest의 insight-first, iterative-academic-writing의 두괄식, humanize-writing의 ML-비전공자 친화 원칙을 한 섹션 단위로 묶어서 적용. KO/EN 양쪽 지원 |
 | `stacked-research` | 실험 결과가 쌓이게 만드는 연구 규율. 설계·발사·판정, 사전등록·헌법·판정문, autoresearch 루프, 정본 코드 변경 승인에 적용. 같은 결론을 다시 사는 것, 무효 레버(선언은 있고 배선은 없는 것), 이미 되던 것을 조용히 깨뜨리는 것, 일회성 스크립트 증식, 문서가 진전을 대체하는 것을 막는다 |
+| `graph-engineering` | 여러 에이전트를 노드·엣지·공유 상태의 그래프로 엮을지, 루프 하나로 충분한지 판단하고 최소 크기로 설계하는 원칙. 다섯 층(프롬프트→컨텍스트→하네스→루프→그래프), 그래프를 꺼내는 6조건, 설계 8단계, 그래프 명세 양식, 과잉 설계 경고, 검토 체크리스트. (from [AI Builder Club, Graph Engineering Guide 2026](https://www.aibuilderclub.com/blog/graph-engineering-guide-2026)) |
 | `karpathy-guidelines` | Andrej Karpathy의 LLM 코딩 pitfall 관찰에서 도출한 4원칙(Think Before Coding / Simplicity First / Surgical Changes / Goal-Driven Execution). 코드 작성·리뷰·리팩토링 시 과잉 추상화·orthogonal edit·가정 은폐를 막는 행동 가이드. (from [multica-ai/andrej-karpathy-skills](https://github.com/multica-ai/andrej-karpathy-skills), MIT) |
 | `company-research-report` | 내러티브 중심(왜-무엇을-어떻게) 기업 투자 분석 보고서. Sankey·Bull/Bear/Base 추세선·용어집 포함 |
 | `sector-analysis` | 내러티브 기반 섹터 분석: 정책/테마 드라이버 → 밸류체인 매핑 → 핵심 노드 → 기업 선정 |
