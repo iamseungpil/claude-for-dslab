@@ -272,6 +272,9 @@ Produce alongside the `.tex` a `<deck>_talking_points.md` that:
   results-and-gap, 2 min on fixes; appendix only in Q&A"
 - Gives per-slide speaker script with "what to show / what to say / how
   it is implemented" for each slide
+- Runs the per-slide speaker script through `talk-script-clarity`
+  (thesis callback, one master metaphor, one number per claim, plain
+  first-use terms, short sentences) before the deck is called done
 - Lists 2–4 expected questions with draft answers
 
 The companion markdown is the place for file paths, line numbers, rev
