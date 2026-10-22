@@ -38,6 +38,7 @@ description: 처음부터 단계적으로 학술 글을 작성하며 글쓰기 �
 - `references/genre-rubrics.md` — 6장르의 의무 단락 (연구 제안서 / 방법론 / 실험보고 / 리뷰 / 비평 / **연구계획서 8절**) + 결과 섹션 내부 흐름(의도→방법→결과→해석)
 - `references/feedback-corpus.md` — 합평 원문 (R1~R5 문단 간 few-shot + **R6 문장 단위 자연스러움** few-shot)
 - `references/banned-phrases-ko.md`, `references/banned-phrases-en.md` — 금지어 grep (§7 계사 대용 "해당한다/위치한다/기능한다", §8 동족어 stacking, §9 register 불일치 포함)
+- `references/expression-criteria-ko.md` — 문장 표현 기준 X1~X13(번역투·잉여 표현, 추상 주어 + 만능 동사, 결말 관용구, hype 어휘, `~적 N`, 지시어·주어 반복) + 맞춤법·띄어쓰기 점검표. DaleSeo/korean-skills(MIT) 출처
 - `references/scoring-rubrics.md` — 4축 채점표 + Pass/Fail 게이트 + 통과 임계
 
 **트레이너 전용 reference:**
@@ -132,7 +133,7 @@ Stage 3   5 lead sentences    통과: 구성 9/12 + R1~R5 + Insight-first lead
 Stage 4   문단별 substage 5개  각자 통과: 4축 9/12 + 아래 게이트 전부
                               · 한 문장 한 역할 (단일 카테고리)
                               · 단문 비율 ≥ 60% (KO 50자 / EN 20w 이내)
-                              · 자연스러움: 계사 대용(§7)·동족어 stacking(§8)·register(§9)·번역투·em-dash 0
+                              · 자연스러움: 계사 대용(§7)·동족어 stacking(§8)·register(§9)·번역투·em-dash 0·표현 기준 X1~X13(expression-criteria-ko.md)
                               · 논리적 비약 0 (인접 문장 추론 단계 명시)
                               · ML-beginner: 약어 풀어쓰기 / 수식 전 자연어 / 서술형 풀어쓰기(명사형 종결 금지)
    4.1   배경 단락 prose
